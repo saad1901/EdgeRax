@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="https://cdn.simpleicons.org/amazonaws/FF9900" alt="AWS logo" width="96" />
 
   # Mega Course Platform
 
