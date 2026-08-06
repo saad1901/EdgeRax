@@ -4,6 +4,8 @@
 
   **A production-ready LMS and course marketplace for modern online learning.**
 
+  Website: [edgerax.com](https://edgerax.com)
+
   Built with Next.js, React, TiDB, Razorpay, AWS S3, and Amazon CloudFront.
 
   <p>
