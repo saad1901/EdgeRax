@@ -1,6 +1,6 @@
 <div align="center">
 
-  # Mega Course Platform
+  # EdgeRax - Mega Course Platform
 
   **A production-ready LMS and course marketplace for modern online learning.**
 
