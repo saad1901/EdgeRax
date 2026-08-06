@@ -1,0 +1,150 @@
+# ============================================================
+# Dependencies
+# ============================================================
+node_modules/
+.pnp/
+.pnp.js
+.pnp.cjs
+.pnp.data.json
+
+# Lockfile choice: the team uses pnpm, keep pnpm-lock.yaml only.
+# If you switch to npm/yarn later, un-ignore the one you pick.
+package-lock.json
+# pnpm-lock.yaml
+yarn.lock
+
+# ============================================================
+# Next.js build output + cache
+# ============================================================
+.next/
+out/
+build/
+dist/
+
+# ============================================================
+# PWA / Workbox build artifacts (generated at build time)
+# ============================================================
+public/sw.js
+public/workbox-*.js
+public/worker-*.js
+public/precache-manifest.*.js
+
+# ============================================================
+# Environment files (NEVER commit secrets)
+# ============================================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Any other obvious secret/seeding files
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+credentials.json
+service-account.json
+prod-env-*.txt
+*.env.txt
+
+# ============================================================
+# Logs
+# ============================================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+*.log
+
+# ============================================================
+# Runtime / process data
+# ============================================================
+pids/
+*.pid
+*.seed
+*.pid.lock
+coverage/
+*.lcov
+.nyc_output/
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.tsbuildinfo
+
+# ============================================================
+# Editor / OS / tooling cruft
+# ============================================================
+# VS Code (keep workspace-level settings only if shared)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ============================================================
+# Uploads / local media (use AWS S3 + CloudFront in prod)
+# ============================================================
+uploads/
+tmp/
+temp/
+storage/
+*.sqlite
+*.sqlite3
+db/*.db
+db/*.sqlite
+local-certs/
+generated-certs/
+
+# ============================================================
+# Optional: misc
+# ============================================================
+# Vercel
+.vercel
+
+# Storybook / Jest / Playwright / Playwright screenshots
+.storybook-out/
+coverage*/
+playwright-report/
+test-results/
+screenshots/
+snapshot-tests/
+
+# Drizzle artifacts (only commit .sql migrations you maintain;
+# meta and temp folders are generated at dev/build time)
+# drizzle/
+# .drizzle/
+
+# Turborepo / nx
+.turbo/
+.nx/
