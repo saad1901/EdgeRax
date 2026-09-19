@@ -14,8 +14,11 @@ A full-featured online education platform built with Next.js 15 — supporting c
 [![MySQL](https://img.shields.io/badge/MySQL-Drizzle_ORM-4479A1?logo=mysql&logoColor=white)](https://orm.drizzle.team/)
 [![Razorpay](https://img.shields.io/badge/Payments-Razorpay-02042B?logo=razorpay&logoColor=white)](https://razorpay.com/)
 [![PWA](https://img.shields.io/badge/PWA-Enabled-5A0FC8?logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
+[![Live](https://img.shields.io/badge/Live-edgerax.com-22c55e?logo=vercel&logoColor=white)](https://edgerax.com/)
 
 </div>
+
+> 🌐 **Live at [edgerax.com](https://edgerax.com/)**
 
 ---
 
