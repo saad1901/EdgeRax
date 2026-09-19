@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { users } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { verifyPassword, signToken, setAuthCookie, isDeviceLimitReached, createSession } from "@/lib/auth"
+import { sendAutoEmail } from "@/lib/email-auto"
 
 /** Parse a readable device label from the User-Agent string. */
 function parseDeviceLabel(ua: string): string {
@@ -64,6 +65,9 @@ export async function POST(req: NextRequest) {
     const token = await signToken({ sub: user.id, role: user.role })
     await setAuthCookie(token)
     await createSession(user.id, token, deviceLabel, ipAddress)
+
+    // Fire-and-forget login email — never blocks the response
+    sendAutoEmail("login", { name: user.name, email: user.email }).catch((e) => console.error("[login email]", e))
 
     return NextResponse.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } })
   } catch (err) {

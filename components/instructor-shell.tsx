@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ArrowLeft, BookOpen, KeyRound, LayoutDashboard, LogOut } from "lucide-react"
+import { ArrowLeft, BookOpen, KeyRound, LayoutDashboard, LogOut, Users } from "lucide-react"
 import { PasswordChangeDialog } from "@/components/password-change-dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import { toast } from "sonner"
 const NAV = [
   { href: "/instructor", label: "Dashboard", icon: LayoutDashboard },
   { href: "/instructor/courses", label: "Courses", icon: BookOpen },
+  { href: "/instructor/students", label: "Students", icon: Users },
 ]
 
 export function InstructorShell({ children }: { children: React.ReactNode }) {

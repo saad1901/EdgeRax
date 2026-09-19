@@ -30,6 +30,7 @@ export async function GET(
       userId:      p.userId,
       name:        u?.name  ?? "Unknown",
       email:       u?.email ?? "Unknown",
+      phone:       u?.phone ?? null,
       amount:      p.amount,
       paymentId:   p.paymentId,
       purchasedAt: p.purchasedAt,

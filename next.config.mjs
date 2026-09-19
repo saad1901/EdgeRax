@@ -5,6 +5,14 @@ const withPWA = nextPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  // Exclude video streaming and CDN URLs from service worker interception.
+  // Without this, Workbox intercepts the 302 redirect and re-routes video
+  // requests back through the Next.js server instead of the CDN edge.
+  exclude: [
+    ({ request }) =>
+      request.url.includes("/api/video/") ||
+      request.url.includes("cdn.edgerax.com"),
+  ],
 });
 
 /** @type {import('next').NextConfig} */
@@ -40,10 +48,10 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https:",
-              "media-src 'self' blob: https://edgerax.b-cdn.net https://*.wasabisys.com",
-              "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://edgerax.b-cdn.net https://*.wasabisys.com",
-              "frame-src 'self' blob: https://api.razorpay.com https://www.youtube.com https://player.vimeo.com https://fast.wistia.com https://www.dailymotion.com https://streamable.com https://www.loom.com",
+              "img-src 'self' data: blob: https: https://cdn.edgerax.com",
+              "media-src 'self' blob: https://*.wasabisys.com https://cdn.edgerax.com",
+              "connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://*.wasabisys.com https://cdn.edgerax.com",
+              "frame-src 'self' blob: https://api.razorpay.com https://www.youtube.com https://player.vimeo.com https://fast.wistia.com https://www.dailymotion.com https://streamable.com https://www.loom.com https://cdn.edgerax.com",
               "font-src 'self' data:",
             ].join("; "),
           },
@@ -63,6 +71,20 @@ const nextConfig = {
       {
         source: "/storage/:path*",
         headers: [{ key: "X-Robots-Tag", value: "noindex" }],
+      },
+      {
+        // Hashed static assets (JS, CSS chunks) — cache forever, they never change
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        // HTML pages — never cache so users always get the latest shell
+        source: "/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
       },
     ]
   },

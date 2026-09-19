@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Users, BookOpen, ShoppingCart, IndianRupee, PieChart, GraduationCap, Share2, ChevronDown, ChevronRight } from "lucide-react"
+import { Users, BookOpen, ShoppingCart, IndianRupee, PieChart, GraduationCap, Share2, ChevronDown, ChevronRight, Briefcase, FileText } from "lucide-react"
 import { AdminShell } from "@/components/admin-shell"
 import { adminApi, type AdminStats } from "@/lib/api"
 import { formatPrice } from "@/lib/format"
@@ -43,10 +43,12 @@ export default function AdminDashboardPage() {
   if (!stats) return <AdminShell><div className="flex justify-center py-20"><Spinner className="size-8" /></div></AdminShell>
 
   const statCards = [
-    { label: "Total Revenue",    value: formatPrice(stats.totalRevenue), icon: IndianRupee },
-    { label: "Courses Sold",     value: String(stats.totalSold),         icon: ShoppingCart },
-    { label: "Total Courses",    value: String(stats.totalCourses),      icon: BookOpen },
-    { label: "Registered Users", value: String(stats.totalUsers),        icon: Users },
+    { label: "Total Revenue",       value: formatPrice(stats.totalRevenue), icon: IndianRupee },
+    { label: "Courses Sold",        value: String(stats.totalSold),         icon: ShoppingCart },
+    { label: "Total Courses",       value: String(stats.totalCourses),      icon: BookOpen },
+    { label: "Registered Users",    value: String(stats.totalUsers),        icon: Users },
+    { label: "Active Internships",  value: String(stats.totalInternships ?? 0), icon: Briefcase },
+    { label: "Intern Applications", value: String(stats.totalApplications ?? 0), icon: FileText },
   ]
 
   const total = breakdown?.totalRevenue ?? 0
@@ -59,7 +61,7 @@ export default function AdminDashboardPage() {
           <p className="text-muted-foreground">Overview of your platform&apos;s performance.</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
           {statCards.map(({ label, value, icon: Icon }) => (
             <Card key={label}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">

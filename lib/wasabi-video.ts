@@ -5,8 +5,11 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3"
+import fs from "fs"
+import path from "path"
 
 const VIDEO_PREFIX = "videos/"
+const LOCAL_VIDEO_DIR = path.join(process.cwd(), "storage", "videos")
 
 function requireEnv(name: string) {
   const value = process.env[name]
@@ -57,9 +60,21 @@ export function getWasabiBucket() {
   return bucket
 }
 
+export function getGcoreCdnBaseUrl() {
+  const gcore = process.env.GCORE_CDN_URL || ""
+  return gcore.replace(/\/$/, "")
+}
+
+export function buildGcoreCdnUrl(path: string) {
+  const cleanPath = String(path || "").replace(/^\/+/, "")
+  const base = getGcoreCdnBaseUrl()
+  if (!base || !cleanPath) return cleanPath
+  return `${base}/${cleanPath}`
+}
+
 export function getVideoKeyFromMarker(videoUrl: string | null | undefined, lessonId?: string) {
   if (videoUrl?.startsWith("wasabi:")) return videoUrl.slice("wasabi:".length)
-  if (videoUrl?.startsWith("local:")) return `${VIDEO_PREFIX}${videoUrl.slice("local:".length)}.mp4`
+  if (videoUrl?.startsWith("local:")) return path.join(LOCAL_VIDEO_DIR, String(videoUrl.slice("local:".length)))
   return lessonId ? `${VIDEO_PREFIX}${lessonId}.mp4` : ""
 }
 
@@ -67,18 +82,27 @@ export function isPrivateVideoMarker(videoUrl: string | null | undefined) {
   return Boolean(videoUrl?.startsWith("wasabi:") || videoUrl?.startsWith("local:"))
 }
 
+export function isLocalVideoMarker(videoUrl: string | null | undefined) {
+  return Boolean(videoUrl?.startsWith("local:"))
+}
+
 export function getVideoMarker(key: string) {
   return `wasabi:${key}`
 }
 
-/**
- * Returns the Bunny CDN URL for a Wasabi object key if BUNNY_CDN_URL is set,
- * otherwise falls back to the internal proxy route /api/video/[lessonId].
- */
-export function getCdnVideoUrl(key: string): string {
-  const cdn = process.env.BUNNY_CDN_URL?.replace(/\/$/, "")
-  if (cdn) return `${cdn}/${key}`
-  return "" // caller falls back to proxy
+export function getLocalVideoMarker(filename: string) {
+  return `local:${filename}`
+}
+
+export function getLocalVideoPath(filename: string) {
+  return path.join(LOCAL_VIDEO_DIR, filename)
+}
+
+export async function deleteLocalVideo(videoUrl: string | null | undefined) {
+  if (!videoUrl?.startsWith("local:")) return
+  const filename = videoUrl.slice("local:".length)
+  const fp = getLocalVideoPath(filename)
+  if (fs.existsSync(fp)) fs.unlinkSync(fp)
 }
 
 export function extensionFromMime(contentType: string) {
@@ -138,4 +162,18 @@ export async function deleteWasabiVideo(key: string) {
     Bucket: getWasabiBucket(),
     Key: key,
   }))
+}
+
+/**
+ * Generates a plain Gcore CDN URL for a given object key.
+ *
+ * Returns null if GCORE_CDN_URL is not configured
+ * (falls back to proxy streaming in the video route).
+ */
+export function generateGcoreCdnUrl(objectKey: string): string | null {
+  const cdnBase = getGcoreCdnBaseUrl()
+  if (!cdnBase) return null
+
+  const urlPath = `/${objectKey.replace(/^\/+/, "")}`
+  return `${cdnBase}${urlPath}`
 }

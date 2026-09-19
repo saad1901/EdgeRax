@@ -31,6 +31,7 @@ export async function GET() {
         id:              u.id,
         name:            u.name,
         email:           u.email,
+        role:            u.role,
         phone:           u.phone ?? null,
         referralPercent: u.referralPercent ?? null,
         createdAt:       u.createdAt,

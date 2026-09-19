@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { CheckCircle2, ShieldCheck, Lock, AlertCircle, Clock, Tag, X, Loader2 } from "lucide-react"
+import { CheckCircle2, ShieldCheck, Lock, AlertCircle, Clock, Tag, X, Loader2, Phone } from "lucide-react"
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -10,14 +10,14 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
 import type { Course } from "@/lib/types"
-import { couponsApi, type CouponValidation } from "@/lib/api"
+import { couponsApi, siteSettingsApi, type CouponValidation, type SiteSettings } from "@/lib/api"
 import { formatPrice, formatValidity } from "@/lib/format"
 
 // ─── Razorpay SDK types ───────────────────────────────────────────────────────
 
 declare global {
   interface Window {
-    Razorpay: new (options: RazorpayOptions) => RazorpayInstance
+    Razorpay: any
   }
 }
 
@@ -119,6 +119,7 @@ export function CheckoutDialog({
   const [phase, setPhase]     = useState<Phase>("summary")
   const [errorMsg, setErrorMsg] = useState("")
   const [orderId, setOrderId] = useState<string | null>(null)
+  const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null)
   const orderIdRef = useRef<string | null>(null)
   const rzpRef = useRef<RazorpayInstance | null>(null)
   const { ready: sdkReady, error: sdkError } = useRazorpayScript()
@@ -130,8 +131,9 @@ export function CheckoutDialog({
   const [couponValidating, setCouponValidating] = useState(false)
   const [couponError,      setCouponError]      = useState("")
   const [appliedCoupon,    setAppliedCoupon]    = useState<CouponValidation | null>(null)
+  const [showCouponField,  setShowCouponField]  = useState(false)
 
-  // Reset state when dialog opens
+  // Reset state and fetch contact settings when dialog opens
   useEffect(() => {
     if (open) {
       setPhase("summary")
@@ -141,6 +143,8 @@ export function CheckoutDialog({
       setCouponInput("")
       setCouponError("")
       setAppliedCoupon(null)
+      setShowCouponField(false)
+      siteSettingsApi.get().then(setSiteSettings).catch(() => {})
     }
   }, [open])
 
@@ -175,45 +179,62 @@ export function CheckoutDialog({
 
   const effectivePrice = appliedCoupon ? appliedCoupon.finalPrice : course.price
 
-  async function resolveOrder() {
+  /**
+   * resolveOrder - verfies order with retry polling to handle UPI app returns
+   * where Razorpay status sync might take 1-3 seconds.
+   */
+  async function resolveOrder(retries = 3): Promise<boolean> {
     const activeOrderId = orderIdRef.current
     if (!activeOrderId || !course) return false
 
     setPhase("processing")
     setErrorMsg("")
 
-    try {
-      const referralCode = safeSessionGet(REFERRAL_KEY) || undefined
-      const verifyRes = await fetch("/api/razorpay/verify", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          razorpay_order_id: activeOrderId,
-          courseId: course.id,
-          referralCode,
-          couponCode: appliedCoupon?.code,
-        }),
-      })
-      const verifyData = await verifyRes.json()
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const referralCode = safeSessionGet(REFERRAL_KEY) || undefined
+        const verifyRes = await fetch("/api/razorpay/verify", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            razorpay_order_id: activeOrderId,
+            courseId: course.id,
+            referralCode,
+            couponCode: appliedCoupon?.code,
+          }),
+        })
+        const verifyData = await verifyRes.json()
 
-      if (!verifyRes.ok) {
+        if (verifyRes.ok) {
+          setOrderId(null)
+          orderIdRef.current = null
+          setPhase("success")
+          setTimeout(() => onSuccess(verifyData.paymentId), 2500)
+          return true
+        }
+
+        // If Razorpay status update is slightly delayed after returning from payment app, wait and retry
+        if (attempt < retries) {
+          await new Promise((res) => setTimeout(res, 1500))
+          continue
+        }
+
         setErrorMsg(verifyData.error ?? "Payment verification failed.")
         setPhase("error")
         return false
+      } catch (err) {
+        console.error("[CheckoutDialog] resolveOrder error:", err)
+        if (attempt < retries) {
+          await new Promise((res) => setTimeout(res, 1500))
+          continue
+        }
+        setErrorMsg("Payment verification failed. Please contact support.")
+        setPhase("error")
+        return false
       }
-
-      setOrderId(null)
-      orderIdRef.current = null
-      setPhase("success")
-      setTimeout(() => onSuccess(verifyData.paymentId), 900)
-      return true
-    } catch (err) {
-      console.error("[CheckoutDialog] resolveOrder error:", err)
-      setErrorMsg("Payment verification failed. Please contact support.")
-      setPhase("error")
-      return false
     }
+    return false
   }
 
   async function pay() {
@@ -328,7 +349,7 @@ export function CheckoutDialog({
             setOrderId(null)
             orderIdRef.current = null
             setPhase("success")
-            setTimeout(() => onSuccess(response.razorpay_payment_id), 900)
+            setTimeout(() => onSuccess(response.razorpay_payment_id), 2500)
           } catch (err) {
             console.error("[CheckoutDialog] verify error:", err)
             setErrorMsg("Payment verification failed. Please contact support.")
@@ -338,7 +359,7 @@ export function CheckoutDialog({
       }
 
       rzpRef.current = new window.Razorpay(options)
-      rzpRef.current.open()
+      rzpRef.current?.open()
     } catch (err) {
       console.error("[CheckoutDialog] pay error:", err)
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong. Please try again.")
@@ -430,28 +451,40 @@ export function CheckoutDialog({
               </div>
             </div>
 
-            {/* Coupon input */}
+            {/* Coupon / Referral input */}
             {!appliedCoupon ? (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter coupon code"
-                    value={couponInput}
-                    onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError("") }}
-                    onKeyDown={(e) => e.key === "Enter" && !couponValidating && applyCoupon()}
-                    className="font-mono uppercase tracking-wide"
-                    disabled={couponValidating}
-                  />
-                  <Button variant="outline" onClick={applyCoupon} disabled={couponValidating || !couponInput.trim()}>
-                    {couponValidating ? <Loader2 className="size-4 animate-spin" /> : "Apply"}
-                  </Button>
+              !showCouponField ? (
+                <button
+                  type="button"
+                  onClick={() => setShowCouponField(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline transition-colors w-fit cursor-pointer py-1"
+                >
+                  <Tag className="size-3.5" />
+                  Have referral code?
+                </button>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Enter coupon or referral code"
+                      value={couponInput}
+                      onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError("") }}
+                      onKeyDown={(e) => e.key === "Enter" && !couponValidating && applyCoupon()}
+                      className="font-mono uppercase tracking-wide"
+                      disabled={couponValidating}
+                      autoFocus
+                    />
+                    <Button variant="outline" onClick={applyCoupon} disabled={couponValidating || !couponInput.trim()}>
+                      {couponValidating ? <Loader2 className="size-4 animate-spin" /> : "Apply"}
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <p className="flex items-center gap-1 text-xs text-destructive">
+                      <AlertCircle className="size-3 shrink-0" />{couponError}
+                    </p>
+                  )}
                 </div>
-                {couponError && (
-                  <p className="flex items-center gap-1 text-xs text-destructive">
-                    <AlertCircle className="size-3 shrink-0" />{couponError}
-                  </p>
-                )}
-              </div>
+              )
             ) : (
               <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm dark:border-green-800/40 dark:bg-green-900/20">
                 <span className="flex items-center gap-2 font-medium text-green-700 dark:text-green-400">
@@ -467,9 +500,17 @@ export function CheckoutDialog({
 
             {/* Error message */}
             {(phase === "error" && errorMsg) || initError ? (
-              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                <span>{errorMsg || initError}</span>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  <span>{errorMsg || initError}</span>
+                </div>
+                {siteSettings?.phones && siteSettings.phones.length > 0 && (
+                  <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground text-center">
+                    If payment was deducted from your payment app but access is not granted, please WhatsApp or call us at{" "}
+                    <span className="font-semibold text-foreground">{siteSettings.phones.join(", ")}</span>.
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -501,14 +542,37 @@ export function CheckoutDialog({
         {/* Success */}
         {phase === "success" && (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
-            <CheckCircle2 className="size-14 text-primary" />
+            <CheckCircle2 className="size-14 text-green-500" />
             <p className="text-lg font-semibold">Payment Successful</p>
             <p className="text-sm text-muted-foreground">
-              Your course has been unlocked. Redirecting to My Courses…
+              Your course has been unlocked! Redirecting to My Courses…
             </p>
+            {siteSettings?.phones && siteSettings.phones.length > 0 && (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 text-xs text-muted-foreground max-w-sm dark:border-emerald-800/40 dark:bg-emerald-950/30">
+                <p className="font-semibold text-emerald-950 dark:text-emerald-300 text-xs mb-1">
+                  Need assistance or access not reflected?
+                </p>
+                <p className="text-muted-foreground leading-relaxed">
+                  If your payment was successful but you do not get access to the portal, please WhatsApp or call us at:
+                </p>
+                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 font-bold text-emerald-700 dark:text-emerald-400 text-xs">
+                  {siteSettings.phones.map((phone, i) => (
+                    <a
+                      key={i}
+                      href={`tel:${phone.replace(/\s/g, "")}`}
+                      className="flex items-center gap-1.5 rounded-md border bg-white px-2.5 py-1 shadow-xs transition-colors hover:bg-emerald-50 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60"
+                    >
+                      <Phone className="size-3" />
+                      <span>{phone}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>
     </Dialog>
   )
 }
+

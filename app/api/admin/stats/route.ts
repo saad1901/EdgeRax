@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { users, courses, purchases } from "@/lib/db/schema"
+import { users, courses, purchases, internships, internshipApplications } from "@/lib/db/schema"
 import { getCurrentUser } from "@/lib/auth"
 import type { InferSelectModel } from "drizzle-orm"
 
@@ -13,11 +13,13 @@ export async function GET() {
   if (!user || user.role !== "admin")
     return NextResponse.json({ error: "Forbidden." }, { status: 403 })
 
-  const [allUsers, allCourses, allPurchases] = await Promise.all([
+  const [allUsers, allCourses, allPurchases, allInternships, allApplications] = await Promise.all([
     db.select().from(users),
     db.select().from(courses),
     db.select().from(purchases),
-  ]) as [User[], Course[], Purchase[]]
+    db.select().from(internships),
+    db.select().from(internshipApplications),
+  ]) as [User[], Course[], Purchase[], any[], any[]]
 
   const totalRevenue = allPurchases.reduce((sum: number, p: Purchase) => sum + Number(p.amount), 0)
 
@@ -43,6 +45,8 @@ export async function GET() {
     totalSold: allPurchases.length,
     totalRevenue,
     totalCourses: allCourses.length,
+    totalInternships: allInternships.length,
+    totalApplications: allApplications.length,
     revenueByCourse,
     recentPurchases: recent,
   })

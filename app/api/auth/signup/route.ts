@@ -3,6 +3,7 @@ import { db } from "@/lib/db"
 import { users, referralCodes } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { hashPassword, signToken, setAuthCookie, createSession, uid } from "@/lib/auth"
+import { sendAutoEmail } from "@/lib/email-auto"
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,6 +43,13 @@ export async function POST(req: NextRequest) {
     const token = await signToken({ sub: newUser.id, role: newUser.role })
     await setAuthCookie(token)
     await createSession(newUser.id, token, "Signup", "")
+
+    // Fire-and-forget welcome email
+    sendAutoEmail("signup", {
+      name:  newUser.name,
+      email: newUser.email,
+      link:  `${process.env.APP_URL ?? ""}`,
+    }).catch((e) => console.error("[signup email]", e))
 
     return NextResponse.json(
       { user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role } },

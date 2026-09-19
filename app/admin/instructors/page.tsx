@@ -6,6 +6,7 @@ import {
   Trash2, BookOpen, AlertTriangle, Save,
 } from "lucide-react"
 import { AdminShell } from "@/components/admin-shell"
+import { PasswordChangeDialog } from "@/components/password-change-dialog"
 import { adminApi, type AdminInstructor } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -70,6 +71,9 @@ export default function AdminInstructorsPage() {
   // Edit dialog
   const [editTarget, setEditTarget] = useState<AdminInstructor | null>(null)
   const [editForm,   setEditForm]   = useState<InstructorForm>(emptyForm())
+
+  // Password change dialog
+  const [passTarget, setPassTarget] = useState<AdminInstructor | null>(null)
 
   // Delete flow
   const [deleteTarget,      setDeleteTarget]      = useState<AdminInstructor | null>(null)
@@ -288,6 +292,10 @@ export default function AdminInstructorsPage() {
                           onClick={() => openEdit(inst)}>
                           <Pencil className="size-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" aria-label="Change password"
+                          onClick={() => setPassTarget(inst)}>
+                          <KeyRound className="size-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" aria-label="Delete instructor"
                           onClick={() => openDelete(inst)}>
                           <Trash2 className="size-4 text-destructive" />
@@ -329,6 +337,17 @@ export default function AdminInstructorsPage() {
           submitLabel="Save changes"
           onSubmit={handleSaveEdit}
           showPasswordRequired={false}
+        />
+      )}
+
+      {/* ── Change password dialog ── */}
+      {passTarget && (
+        <PasswordChangeDialog
+          mode="user"
+          userId={passTarget.id}
+          userName={passTarget.name}
+          open={Boolean(passTarget)}
+          onOpenChange={(o) => { if (!o) setPassTarget(null) }}
         />
       )}
 

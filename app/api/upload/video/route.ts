@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { lessons } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
-import { deleteWasabiVideo, getVideoKeyFromMarker, getVideoMarker, uploadVideoToWasabi } from "@/lib/wasabi-video"
+import fs from "fs"
+import path from "path"
+import { deleteWasabiVideo, getVideoKeyFromMarker, getVideoMarker, getLocalVideoMarker, uploadVideoToWasabi } from "@/lib/wasabi-video"
 import { requireManageLesson } from "@/lib/course-access"
 
 const MAX_SIZE = 2 * 1024 * 1024 * 1024 // 2 GB
@@ -19,6 +21,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData()
     const lessonId = formData.get("lessonId") as string | null
     const file = formData.get("file") as File | null
+    const storageType = (formData.get("storageType") as string | null) || "cloud"
 
     if (!lessonId || !file) {
       return NextResponse.json({ error: "lessonId and file are required." }, { status: 400 })
@@ -57,8 +60,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Lesson not found." }, { status: 404 })
     }
 
+    const extension = file.name.includes(".")
+      ? file.name.slice(file.name.lastIndexOf("."))
+      : ".mp4"
+
+    if (storageType === "local") {
+      const dir = path.join(process.cwd(), "storage", "videos")
+      fs.mkdirSync(dir, { recursive: true })
+      const filename = `${lessonId}-${Date.now()}${extension}`
+      const out = path.join(dir, filename)
+      const buffer = Buffer.from(await file.arrayBuffer())
+      fs.writeFileSync(out, buffer)
+
+      const videoUrl = getLocalVideoMarker(filename)
+      await db.update(lessons).set({ videoUrl }).where(eq(lessons.id, lessonId))
+
+      const oldKey = getVideoKeyFromMarker(lesson.videoUrl)
+      if (oldKey && oldKey !== videoUrl) {
+        try {
+          await deleteWasabiVideo(oldKey)
+        } catch (error) {
+          console.warn("[POST /api/upload/video] old video cleanup failed", error)
+        }
+      }
+
+      return NextResponse.json({ ok: true, videoUrl })
+    }
+
     // Upload file to Wasabi S3. The app streams it later through /api/video/[lessonId].
-    // Buffer the file — the AWS SDK v3 cannot compute a payload hash on a Web ReadableStream.
     const body = Buffer.from(await file.arrayBuffer())
     const key = await uploadVideoToWasabi({
       lessonId,

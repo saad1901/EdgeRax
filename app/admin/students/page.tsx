@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from "react"
 import {
   Users, ChevronDown, ChevronRight, Gift,
   Search, BookOpen, IndianRupee, Calendar, KeyRound,
-  Pencil, Trash2, Save, Share2,
+  Pencil, Trash2, Save, Share2, ShieldCheck, User,
 } from "lucide-react"
 import { AdminShell } from "@/components/admin-shell"
 import { GiveawayDialog } from "@/components/giveaway-dialog"
@@ -74,7 +74,8 @@ export default function AdminStudentsPage() {
   const filtered = students.filter(
     (s) =>
       s.name.toLowerCase().includes(query.toLowerCase()) ||
-      s.email.toLowerCase().includes(query.toLowerCase()),
+      s.email.toLowerCase().includes(query.toLowerCase()) ||
+      (s.phone && s.phone.toLowerCase().includes(query.toLowerCase())),
   )
 
   function toggleExpand(id: string) {
@@ -168,7 +169,7 @@ export default function AdminStudentsPage() {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder="Search by name or email…"
+            placeholder="Search by name, email, or phone…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -189,6 +190,7 @@ export default function AdminStudentsPage() {
                   <TableHead className="w-8" />
                   <TableHead>Student</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead className="hidden lg:table-cell">Phone</TableHead>
                   <TableHead className="hidden sm:table-cell text-center">Enrolled</TableHead>
                   <TableHead className="hidden lg:table-cell text-right">Total Spent</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -210,10 +212,15 @@ export default function AdminStudentsPage() {
                         </TableCell>
                         <TableCell>
                           <p className="font-medium">{student.name}</p>
-                          <p className="text-xs text-muted-foreground md:hidden">{student.email}</p>
+                          <p className="text-xs text-muted-foreground md:hidden">
+                            {student.email}{student.phone ? ` • ${student.phone}` : ""}
+                          </p>
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                           {student.email}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-sm font-mono">
+                          {student.phone || "—"}
                         </TableCell>
                         <TableCell className="hidden sm:table-cell text-center">
                           <Badge variant="secondary">
@@ -267,6 +274,17 @@ export default function AdminStudentsPage() {
                                       <span className="font-medium">{e.courseTitle}</span>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                      {e.paymentId === "giveaway" || e.paymentId === "cash-offline" || e.paymentId.startsWith("admin") ? (
+                                        <Badge variant="secondary" className="gap-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40 text-xs py-0">
+                                          <ShieldCheck className="size-3" />
+                                          Added by Admin
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="outline" className="gap-1 bg-blue-50/50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/40 text-xs py-0">
+                                          <User className="size-3" />
+                                          Paid by User
+                                        </Badge>
+                                      )}
                                       {e.paymentId === "giveaway" ? (
                                         <Badge variant="secondary" className="gap-1">
                                           <Gift className="size-3" />Giveaway

@@ -28,6 +28,9 @@ function isUploadedVideo(videoUrl?: string | null) {
   return Boolean(videoUrl?.startsWith("wasabi:") || videoUrl?.startsWith("local:"))
 }
 
+type UploadStorageType = "cloud" | "local"
+type UploadStorageChoice = UploadStorageType | ""
+
 export function CourseCurriculumManagerPage({
   params,
   mode = "admin",
@@ -45,6 +48,7 @@ export function CourseCurriculumManagerPage({
   const [studentsLoading, setStudentsLoading] = useState(false)
   const [giveawayOpen, setGiveawayOpen] = useState(false)
   const [togglingCerts, setTogglingCerts] = useState(false)
+  const [lessonUploadStorageDefaults, setLessonUploadStorageDefaults] = useState<Record<string, UploadStorageChoice>>({})
 
   async function toggleCertificates() {
     if (!course) return
@@ -68,6 +72,16 @@ export function CourseCurriculumManagerPage({
     try { setStudents(await adminApi.listCourseStudents(id)) }
     catch { toast.error("Failed to load students.") }
     finally { setStudentsLoading(false) }
+  }
+
+  async function handleLessonAdded(lessonId?: string, storageType: UploadStorageChoice = "") {
+    if (lessonId) {
+      setLessonUploadStorageDefaults((defaults) => ({
+        ...defaults,
+        [lessonId]: storageType,
+      }))
+    }
+    await load()
   }
 
   useEffect(() => { load() }, [id])
@@ -162,7 +176,15 @@ export function CourseCurriculumManagerPage({
           ) : (
             <div className="flex flex-col gap-4">
               {course.chapters.map((chapter, i) => (
-                <ChapterCard key={chapter.id} chapter={chapter} index={i} courseId={id} onChanged={load} />
+                <ChapterCard
+                  key={chapter.id}
+                  chapter={chapter}
+                  index={i}
+                  courseId={id}
+                  onChanged={load}
+                  onLessonAdded={handleLessonAdded}
+                  lessonUploadStorageDefaults={lessonUploadStorageDefaults}
+                />
               ))}
             </div>
           )
@@ -187,6 +209,7 @@ export function CourseCurriculumManagerPage({
                   <TableRow>
                     <TableHead>Student</TableHead>
                     <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="hidden lg:table-cell">Phone</TableHead>
                     <TableHead className="hidden sm:table-cell">Payment</TableHead>
                     <TableHead className="hidden lg:table-cell text-right">Amount</TableHead>
                     <TableHead className="hidden lg:table-cell">Date</TableHead>
@@ -197,10 +220,15 @@ export function CourseCurriculumManagerPage({
                     <TableRow key={s.purchaseId}>
                       <TableCell className="font-medium">
                         {s.name}
-                        <p className="text-xs text-muted-foreground md:hidden">{s.email}</p>
+                        <p className="text-xs text-muted-foreground md:hidden">
+                          {s.email}{s.phone ? ` • ${s.phone}` : ""}
+                        </p>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
                         {s.email}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-muted-foreground text-sm font-mono">
+                        {s.phone || "—"}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         {s.paymentId === "giveaway" ? (
@@ -296,8 +324,13 @@ function AddChapterDialog({ courseId, onAdded }: { courseId: string; onAdded: ()
 
 // ─── Chapter Card ─────────────────────────────────────────────────────────────
 
-function ChapterCard({ chapter, index, courseId, onChanged }: {
-  chapter: Chapter; index: number; courseId: string; onChanged: () => void
+function ChapterCard({ chapter, index, courseId, onChanged, onLessonAdded, lessonUploadStorageDefaults }: {
+  chapter: Chapter
+  index: number
+  courseId: string
+  onChanged: () => void
+  onLessonAdded: (lessonId?: string, storageType?: UploadStorageChoice) => void | Promise<void>
+  lessonUploadStorageDefaults: Record<string, UploadStorageChoice>
 }) {
   const [deleting, setDeleting] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -343,7 +376,7 @@ function ChapterCard({ chapter, index, courseId, onChanged }: {
             <Button variant="ghost" size="icon" aria-label="Edit chapter name" onClick={openEdit}>
               <Pencil className="size-4" />
             </Button>
-            <AddLessonDialog chapterId={chapter.id} onAdded={onChanged} />
+            <AddLessonDialog chapterId={chapter.id} onAdded={onLessonAdded} />
             <Button variant="ghost" size="icon" aria-label="Delete chapter" onClick={handleDelete} disabled={deleting}>
               {deleting ? <Spinner className="size-4" /> : <Trash2 className="size-4 text-destructive" />}
             </Button>
@@ -355,7 +388,12 @@ function ChapterCard({ chapter, index, courseId, onChanged }: {
           ) : (
             <ul className="flex flex-col divide-y">
               {chapter.lessons.map((lesson) => (
-                <LessonRow key={lesson.id} lesson={lesson} onChanged={onChanged} />
+                <LessonRow
+                  key={lesson.id}
+                  lesson={lesson}
+                  onChanged={onChanged}
+                  initialUploadStorageType={lessonUploadStorageDefaults[lesson.id]}
+                />
               ))}
             </ul>
           )}
@@ -392,15 +430,30 @@ function ChapterCard({ chapter, index, courseId, onChanged }: {
 
 // ─── Lesson Row ──────────────────────────────────────────────────────────────
 
-function LessonRow({ lesson, onChanged }: { lesson: Lesson; onChanged: () => void }) {
+function LessonRow({
+  lesson,
+  onChanged,
+  initialUploadStorageType = "",
+}: {
+  lesson: Lesson
+  onChanged: () => void
+  initialUploadStorageType?: UploadStorageChoice
+}) {
   const [deleting, setDeleting] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const lessonType = lesson.lessonType ?? "VIDEO"
+  const [uploadStorageType, setUploadStorageType] = useState<UploadStorageChoice>(
+    lesson.videoUrl?.startsWith("local:") ? "local" : initialUploadStorageType
+  )
 
   const hasVideo = Boolean(lesson.videoUrl)
   const isUploaded = isUploadedVideo(lesson.videoUrl)
+
+  useEffect(() => {
+    setUploadStorageType(lesson.videoUrl?.startsWith("local:") ? "local" : initialUploadStorageType)
+  }, [lesson.id, lesson.videoUrl, initialUploadStorageType])
 
   async function handleDelete() {
     if (!confirm(`Delete lesson "${lesson.title}"?`)) return
@@ -423,7 +476,13 @@ function LessonRow({ lesson, onChanged }: { lesson: Lesson; onChanged: () => voi
         await adminApi.uploadPdf(lesson.id, file, setUploadProgress)
         toast.success("PDF uploaded.")
       } else {
-        await adminApi.uploadVideo(lesson.id, file, setUploadProgress)
+        if (!uploadStorageType) {
+          toast.error("Choose Cloud or Local before uploading a video.")
+          setUploadProgress(null)
+          if (fileRef.current) fileRef.current.value = ""
+          return
+        }
+        await adminApi.uploadVideo(lesson.id, file, setUploadProgress, uploadStorageType)
         toast.success("Video uploaded.")
       }
       setUploadProgress(null)
@@ -456,7 +515,7 @@ function LessonRow({ lesson, onChanged }: { lesson: Lesson; onChanged: () => voi
         {lessonType === "VIDEO" ? (
           hasVideo ? (
             <Badge variant="outline" className="shrink-0 gap-1 text-xs">
-              {isUploaded ? "Cloud upload" : "External"}
+              {isUploaded ? (lesson.videoUrl?.startsWith("local:") ? "Local upload" : "Cloud upload") : "External"}
             </Badge>
           ) : (
             <span className="shrink-0 text-xs text-muted-foreground">No video</span>
@@ -485,13 +544,33 @@ function LessonRow({ lesson, onChanged }: { lesson: Lesson; onChanged: () => voi
             <Pencil className="size-4" />
           </Button>
 
-          {lessonType !== "URL" && (
+          {lessonType === "VIDEO" && (
             <>
-              <Button variant="ghost" size="icon" aria-label={lessonType === "PDF" ? "Upload PDF" : "Replace video"}
+              <select
+                value={uploadStorageType}
+                onChange={(e) => setUploadStorageType(e.target.value as UploadStorageChoice)}
+                className="h-8 rounded-md border border-input bg-background px-2 py-1 text-xs"
+                aria-label="Video storage target"
+              >
+                <option value="">Select storage</option>
+                <option value="cloud">Cloud</option>
+                <option value="local">Local</option>
+              </select>
+              <Button variant="ghost" size="icon" aria-label="Replace video"
+                onClick={() => fileRef.current?.click()} disabled={uploadProgress !== null || !uploadStorageType}>
+                <Upload className="size-4" />
+              </Button>
+              <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={handleFileChange} />
+            </>
+          )}
+
+          {lessonType === "PDF" && (
+            <>
+              <Button variant="ghost" size="icon" aria-label="Upload PDF"
                 onClick={() => fileRef.current?.click()} disabled={uploadProgress !== null}>
                 <Upload className="size-4" />
               </Button>
-              <input ref={fileRef} type="file" accept={lessonType === "PDF" ? "application/pdf" : "video/*"} className="hidden" onChange={handleFileChange} />
+              <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} />
             </>
           )}
 
@@ -509,6 +588,8 @@ function LessonRow({ lesson, onChanged }: { lesson: Lesson; onChanged: () => voi
         onSaved={onChanged}
         fileRef={fileRef}
         uploadProgress={uploadProgress}
+        uploadStorageType={uploadStorageType}
+        onUploadStorageTypeChange={setUploadStorageType}
         onFileChange={handleFileChange}
       />
     </>
@@ -524,6 +605,8 @@ function EditLessonDialog({
   onSaved,
   fileRef,
   uploadProgress,
+  uploadStorageType,
+  onUploadStorageTypeChange,
   onFileChange,
 }: {
   lesson: Lesson
@@ -532,6 +615,8 @@ function EditLessonDialog({
   onSaved: () => void
   fileRef: React.RefObject<HTMLInputElement | null>
   uploadProgress: number | null
+  uploadStorageType: UploadStorageChoice
+  onUploadStorageTypeChange: (storageType: UploadStorageChoice) => void
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }) {
   const [title, setTitle] = useState(lesson.title)
@@ -677,16 +762,25 @@ function EditLessonDialog({
 
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs text-muted-foreground">
-                    {isUploaded ? "Replace cloud video file" : "Or upload a video file to Wasabi"}
+                    {isUploaded ? "Replace cloud/local video file" : "Or upload a video file to cloud or local disk"}
                   </span>
                   <div className="flex items-center gap-2">
+                    <select
+                      value={uploadStorageType}
+                      onChange={(e) => onUploadStorageTypeChange(e.target.value as UploadStorageChoice)}
+                      className="h-9 rounded-md border border-input bg-background px-3 py-2 text-xs"
+                    >
+                      <option value="">Select storage</option>
+                      <option value="cloud">Cloud</option>
+                      <option value="local">Local filesystem</option>
+                    </select>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       className="gap-1.5"
                       onClick={() => fileRef.current?.click()}
-                      disabled={uploadProgress !== null}
+                      disabled={uploadProgress !== null || !uploadStorageType}
                     >
                       <Upload className="size-3.5" />
                       {uploadProgress !== null ? `Uploading ${uploadProgress}%…` : isUploaded ? "Replace file" : "Upload file"}
@@ -753,7 +847,13 @@ function EditLessonDialog({
 
 // ─── Add Lesson ──────────────────────────────────────────────────────────────
 
-function AddLessonDialog({ chapterId, onAdded }: { chapterId: string; onAdded: () => void }) {
+function AddLessonDialog({
+  chapterId,
+  onAdded,
+}: {
+  chapterId: string
+  onAdded: (lessonId?: string, storageType?: UploadStorageChoice) => void | Promise<void>
+}) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [duration, setDuration] = useState("")
@@ -764,13 +864,16 @@ function AddLessonDialog({ chapterId, onAdded }: { chapterId: string; onAdded: (
   const [pdfDescription, setPdfDescription] = useState("")
   const [preview, setPreview] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [videoStorageType, setVideoStorageType] = useState<UploadStorageChoice>("")
 
   async function handleAdd() {
     if (!title.trim()) { toast.error("Enter a lesson title."); return }
     if (lessonType === "URL" && !urlLink.trim()) { toast.error("Enter a URL for this lesson."); return }
+    if (lessonType === "VIDEO" && !videoStorageType) { toast.error("Choose Cloud or Local for this video lesson."); return }
     setSaving(true)
     try {
-      await adminApi.addLesson(chapterId, {
+      const selectedVideoStorageType = videoStorageType
+      const created = await adminApi.addLesson(chapterId, {
         title: title.trim(),
         duration: duration.trim() || "5:00",
         preview,
@@ -780,10 +883,11 @@ function AddLessonDialog({ chapterId, onAdded }: { chapterId: string; onAdded: (
         pdfDescription: pdfDescription.trim(),
         urlLink: urlLink.trim(),
       })
+
       toast.success("Lesson added.")
-      setTitle(""); setDuration(""); setVideoUrl(""); setUrlLink(""); setPdfTitle(""); setPdfDescription(""); setLessonType("VIDEO"); setPreview(false)
+      setTitle(""); setDuration(""); setVideoUrl(""); setUrlLink(""); setPdfTitle(""); setPdfDescription(""); setLessonType("VIDEO"); setPreview(false); setVideoStorageType("")
       setOpen(false)
-      onAdded()
+      await onAdded(created.id, selectedVideoStorageType)
     } catch (e: any) { toast.error(e.message) }
     finally { setSaving(false) }
   }
@@ -814,11 +918,24 @@ function AddLessonDialog({ chapterId, onAdded }: { chapterId: string; onAdded: (
             </Field>
           </div>
           {lessonType === "VIDEO" ? (
-            <Field>
-              <FieldLabel htmlFor="l-video">Video URL (optional)</FieldLabel>
-              <Input id="l-video" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://..." />
-            </Field>
+            <div className="flex flex-col gap-3">
+              <Field>
+                <FieldLabel htmlFor="l-video">Video URL (optional)</FieldLabel>
+                <Input id="l-video" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://..." />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="l-video-storage">Video storage</FieldLabel>
+                <div className="flex items-center gap-2">
+                  <select id="l-video-storage" value={videoStorageType} onChange={(e) => setVideoStorageType(e.target.value as UploadStorageChoice)}
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <option value="">Select storage</option>
+                    <option value="cloud">Cloud (Wasabi)</option>
+                    <option value="local">Local filesystem</option>
+                  </select>
+                </div>
+              </Field>
+            </div>
           ) : lessonType === "PDF" ? (
             <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
               <Field>

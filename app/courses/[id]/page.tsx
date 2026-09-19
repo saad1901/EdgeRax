@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import {
-  Star, Users, PlayCircle, BarChart3, Clock, CheckCircle2,
+  Star, Users, PlayCircle, BarChart3, Clock,
   ArrowLeft, BookOpen, Award, Smartphone, Share2, ZoomIn, X,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -114,49 +114,60 @@ export default function CourseDetailPage() {
   }
 
   const purchaseCard = (
-    <Card>
-      <CardContent className="flex flex-col gap-4 pt-6">
+    <Card className="overflow-hidden border-border/60 shadow-md">
+      <CardContent className="flex flex-col gap-4 p-6">
         {showExpiredNotice && (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive font-medium">
             Your access to this course has expired. Purchase again to regain access.
           </div>
         )}
         {owned ? (
-          <>
-            <div className="flex items-center gap-2 text-primary">
-              <CheckCircle2 className="size-5" />
-              <span className="font-semibold">You own this course</span>
-            </div>
-            <Button className="w-full" nativeButton={false} render={<Link href={`/learn/${course.id}`} />}>Go to course</Button>
-          </>
+          <Button size="lg" className="w-full font-bold h-11 gap-2" nativeButton={false} render={<Link href={`/learn/${course.id}`} />}>
+            <PlayCircle className="size-4" /> Go to Course
+          </Button>
         ) : (
           <>
             <div className="flex items-baseline gap-3">
-              <div className="text-3xl font-bold">{formatPrice(course.price)}</div>
+              <div className="text-3xl font-extrabold">{formatPrice(course.price)}</div>
               {course.originalPrice != null && course.originalPrice > course.price && (
                 <>
-                  <div className="text-lg text-muted-foreground line-through">{formatPrice(course.originalPrice)}</div>
-                  <div className="rounded-md bg-green-100 px-2 py-0.5 text-sm font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  <div className="text-lg text-muted-foreground line-through decoration-1">{formatPrice(course.originalPrice)}</div>
+                  <Badge variant="secondary" className="bg-green-100 hover:bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-semibold">
                     {Math.round((1 - course.price / course.originalPrice) * 100)}% off
-                  </div>
+                  </Badge>
                 </>
               )}
             </div>
-            <Button size="lg" className="w-full" onClick={handleBuy}>
+            <Button size="lg" className="w-full font-bold h-11" onClick={handleBuy}>
               {showExpiredNotice ? "Repurchase" : "Buy Now"}
             </Button>
           </>
         )}
         <Separator />
-        <ul className="flex flex-col gap-3 text-sm">
+        <ul className="flex flex-col gap-3 text-sm text-muted-foreground">
           {course.duration && (
-            <li className="flex items-center gap-2.5"><Clock className="size-4 text-muted-foreground" />{course.duration} of content</li>
+            <li className="flex items-center gap-2.5">
+              <Clock className="size-4 shrink-0 text-foreground/75" />
+              <span>{course.duration} of content</span>
+            </li>
           )}
-          <li className="flex items-center gap-2.5"><BookOpen className="size-4 text-muted-foreground" />{totalLessons(course.chapters)} on-demand lessons</li>
-          <li className="flex items-center gap-2.5"><Clock className="size-4 text-muted-foreground" />{formatValidity(course.validityDays)}</li>
-          <li className="flex items-center gap-2.5"><Smartphone className="size-4 text-muted-foreground" />Access on mobile and desktop</li>
+          <li className="flex items-center gap-2.5">
+            <BookOpen className="size-4 shrink-0 text-foreground/75" />
+            <span>{totalLessons(course.chapters)} on-demand lessons</span>
+          </li>
+          <li className="flex items-center gap-2.5">
+            <Clock className="size-4 shrink-0 text-foreground/75" />
+            <span>{formatValidity(course.validityDays)}</span>
+          </li>
+          <li className="flex items-center gap-2.5">
+            <Smartphone className="size-4 shrink-0 text-foreground/75" />
+            <span>Access on mobile and desktop</span>
+          </li>
           {course.certificatesEnabled && (
-            <li className="flex items-center gap-2.5"><Award className="size-4 text-muted-foreground" />Certificate of completion</li>
+            <li className="flex items-center gap-2.5">
+              <Award className="size-4 shrink-0 text-foreground/75" />
+              <span className="font-semibold text-foreground/90">Certificate of completion</span>
+            </li>
           )}
         </ul>
       </CardContent>
@@ -165,71 +176,153 @@ export default function CourseDetailPage() {
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-6">
-        <Button variant="ghost" size="sm" className="w-fit" nativeButton={false} render={<Link href="/" />}>
-          <ArrowLeft data-icon="inline-start" />Back
-        </Button>
+      <div className="mx-auto max-w-7xl px-4 pt-0 pb-6 md:pt-2 md:pb-8 flex flex-col gap-6">
+        {/* Back Button */}
+        <div>
+          <Button variant="ghost" size="sm" className="w-fit -ml-2 text-muted-foreground hover:text-foreground" nativeButton={false} render={<Link href="/" />}>
+            <ArrowLeft className="mr-2 size-4" /> Back to Courses
+          </Button>
+        </div>
 
-        {/* Mobile purchase card */}
-        <div className="lg:hidden">{purchaseCard}</div>
+        {/* Course Banner (Thumbnail) */}
+        <div 
+          className="group relative cursor-zoom-in overflow-hidden rounded-2xl border bg-muted aspect-video max-h-[480px] w-full shadow-xs"
+          onClick={() => setLightboxOpen(true)}
+          role="button"
+          aria-label="View full image"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && setLightboxOpen(true)}
+        >
+          <img 
+            src={course.thumbnail || "/placeholder.svg"} 
+            alt={course.title}
+            className="size-full object-cover transition-transform duration-300 group-hover:scale-102" 
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20">
+            <ZoomIn className="size-8 text-white opacity-0 drop-shadow-md transition-opacity group-hover:opacity-100" />
+          </div>
+        </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="flex flex-col gap-6 lg:col-span-2">
-            <div>
-              <Badge variant="secondary" className="mb-3">{course.category}</Badge>
-              <h1 className="text-balance text-2xl font-bold tracking-tight md:text-3xl">{course.title}</h1>
-              <p className="mt-3 text-pretty text-muted-foreground">{course.shortDescription}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-                <span className="inline-flex items-center gap-1 font-medium">
-                  <Star className="size-4 fill-chart-4 text-chart-4" />{course.rating || "New"}
+        {/* Mobile: Price / Purchase Card — shown between banner and title */}
+        <div className="lg:hidden">
+          {purchaseCard}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          {/* Left Column: Title, Metadata, About, Syllabus, Instructor */}
+          <div className="lg:col-span-2 flex flex-col gap-8">
+            
+            {/* Course Header Title Block */}
+            <div className="space-y-4">
+              <Badge variant="secondary" className="uppercase tracking-wider text-xs">{course.category}</Badge>
+              <h1 className="text-balance text-3xl font-extrabold tracking-tight text-foreground md:text-4xl leading-tight">
+                {course.title}
+              </h1>
+              <p className="text-pretty text-base md:text-lg text-muted-foreground leading-relaxed">
+                {course.shortDescription}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 text-sm text-muted-foreground pt-2">
+                <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                  <Star className="size-4 fill-amber-400 text-amber-400" />{course.rating || "New"}
                 </span>
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <Users className="size-4" />{course.students.toLocaleString()} students
+                <span className="inline-flex items-center gap-1">
+                  <Users className="size-4 text-muted-foreground/80" />{course.students.toLocaleString()} students enrolled
                 </span>
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <BarChart3 className="size-4" />{course.level}
+                <span className="inline-flex items-center gap-1">
+                  <BarChart3 className="size-4 text-muted-foreground/80" />{course.level}
                 </span>
-                <span className="text-muted-foreground">by {course.instructor}</span>
+                <span>by <span className="font-medium text-foreground">{course.instructor}</span></span>
               </div>
             </div>
 
-            <div className="group relative cursor-zoom-in overflow-hidden rounded-xl border"
-              onClick={() => setLightboxOpen(true)}
-              role="button"
-              aria-label="View full image"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setLightboxOpen(true)}
-            >
-              <img src={course.thumbnail || "/placeholder.svg"} alt={course.title}
-                className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20">
-                <ZoomIn className="size-8 text-white opacity-0 drop-shadow transition-opacity group-hover:opacity-100" />
-              </div>
-            </div>
+            {/* About this course */}
+            <Card className="border-border/60 shadow-2xs">
+              <CardHeader><CardTitle className="text-lg md:text-xl">About this course</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-pretty leading-relaxed text-muted-foreground text-sm md:text-base whitespace-pre-line">
+                  {course.description}
+                </p>
+              </CardContent>
+            </Card>
 
-            {/* Instructor profile — shown above course description */}
+            {/* Curriculum */}
+            <Card className="border-border/60 shadow-2xs">
+              <CardHeader>
+                <CardTitle className="text-lg md:text-xl">Course Syllabus</CardTitle>
+                <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                  {course.chapters.length} chapters • {totalLessons(course.chapters)} lessons
+                </p>
+              </CardHeader>
+              <CardContent>
+                <Accordion defaultValue={course.chapters[0] ? [course.chapters[0].id] : []}>
+                  {course.chapters.map((ch, idx) => (
+                    <AccordionItem key={ch.id} value={ch.id} className="border-b last:border-0">
+                      <AccordionTrigger className="hover:no-underline py-4 min-w-0">
+                        <span className="text-left font-bold text-sm md:text-base text-foreground/95 hover:text-primary transition-colors leading-snug">
+                          {ch.title}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-4 pt-1">
+                        <ul className="flex flex-col gap-1.5 pl-2">
+                          {ch.lessons.map((l) => (
+                            <li key={l.id} className="flex items-center justify-between rounded-lg px-3 py-2.5 text-xs md:text-sm hover:bg-muted/40 transition-colors group min-w-0">
+                              <span className="flex items-center gap-2.5 text-muted-foreground min-w-0 flex-1">
+                                <PlayCircle className="size-4 shrink-0 text-muted-foreground/80 group-hover:text-primary transition-colors" />
+                                {owned || l.preview ? (
+                                  <Link
+                                    href={`/learn/${course.id}?lesson=${l.id}`}
+                                    className="min-w-0 flex-1 truncate text-primary font-semibold hover:underline text-left"
+                                  >
+                                    {l.title}
+                                  </Link>
+                                ) : (
+                                  <span className="min-w-0 flex-1 truncate text-foreground/85">{l.title}</span>
+                                )}
+                                {l.preview && !owned && (
+                                  <Badge variant="secondary" className="ml-1.5 shrink-0 text-[9px] px-1 py-0 h-4 font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/25">
+                                    Preview
+                                  </Badge>
+                                )}
+                              </span>
+                              <span className="ml-3 inline-flex shrink-0 items-center gap-1 text-[11px] md:text-xs text-muted-foreground font-mono font-medium">
+                                <Clock className="size-3" />{l.duration}
+                              </span>
+                            </li>
+                          ))}
+                          {ch.lessons.length === 0 && (
+                            <li className="px-3 py-2 text-xs md:text-sm text-muted-foreground italic">No lessons in this module yet.</li>
+                          )}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </CardContent>
+            </Card>
+
+            {/* Instructor profile */}
             {course.instructorProfile && (
               course.instructorProfile.degree || course.instructorProfile.organization || course.instructorProfile.bio
             ) && (
-              <Card>
+              <Card className="border-border/60 shadow-2xs">
                 <CardHeader>
-                  <CardTitle>Your instructor</CardTitle>
+                  <CardTitle className="text-lg md:text-xl">Your Instructor</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-start gap-4">
-                    <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                  <div className="flex flex-col md:flex-row items-start gap-5">
+                    <div className="flex size-16 md:size-20 shrink-0 items-center justify-center rounded-2xl bg-primary/5 text-2xl md:text-3xl font-extrabold text-primary border border-primary/15">
                       {course.instructor.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex flex-col gap-1 min-w-0">
-                      <p className="font-semibold text-base">{course.instructor}</p>
+                      <p className="font-extrabold text-base md:text-lg text-foreground">{course.instructor}</p>
                       {(course.instructorProfile.degree || course.instructorProfile.organization) && (
-                        <p className="text-sm italic text-muted-foreground">
+                        <p className="text-xs md:text-sm italic font-medium text-muted-foreground">
                           {[course.instructorProfile.degree, course.instructorProfile.organization]
                             .filter(Boolean).join(" · ")}
                         </p>
                       )}
                       {course.instructorProfile.bio && (
-                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+                        <p className="mt-3 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
                           {course.instructorProfile.bio}
                         </p>
                       )}
@@ -239,68 +332,11 @@ export default function CourseDetailPage() {
               </Card>
             )}
 
-            <Card>
-              <CardHeader><CardTitle>About this course</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-pretty leading-relaxed text-muted-foreground">{course.description}</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Curriculum</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {course.chapters.length} chapters • {totalLessons(course.chapters)} lessons
-                </p>
-              </CardHeader>
-              <CardContent>
-                <Accordion defaultValue={course.chapters[0] ? [course.chapters[0].id] : []}>
-                  {course.chapters.map((ch, idx) => (
-                    <AccordionItem key={ch.id} value={ch.id}>
-                      <AccordionTrigger>
-                        <span className="flex items-center gap-2 text-left">
-                          <span className="text-muted-foreground">{String(idx + 1).padStart(2, "0")}</span>
-                          {ch.title}
-                        </span>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <ul className="flex flex-col gap-1">
-                          {ch.lessons.map((l) => (
-                            <li key={l.id} className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm">
-                              <span className="flex items-center gap-2 text-muted-foreground">
-                                <PlayCircle className="size-4 shrink-0" />
-                                {l.preview && !owned ? (
-                                  <Link
-                                    href={`/learn/${course.id}?lesson=${l.id}`}
-                                    className="min-w-0 flex-1 break-words text-primary underline-offset-4 hover:underline"
-                                  >
-                                    {l.title}
-                                  </Link>
-                                ) : (
-                                  <span className="min-w-0 flex-1 break-words">{l.title}</span>
-                                )}
-                                {l.preview && <Badge variant="outline" className="ml-1 shrink-0 text-xs">Free</Badge>}
-                              </span>
-                              <span className="ml-3 inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="size-3" />{l.duration}
-                              </span>
-                            </li>
-                          ))}
-                          {ch.lessons.length === 0 && (
-                            <li className="px-2 py-1.5 text-sm text-muted-foreground">No lessons yet.</li>
-                          )}
-                        </ul>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </CardContent>
-            </Card>
           </div>
 
-          {/* Desktop sidebar */}
-          <div className="hidden lg:col-span-1 lg:block">
-            <div className="lg:sticky lg:top-20">{purchaseCard}</div>
+          {/* Right Column: Floating Sidebar Card (only visible on desktop) */}
+          <div className="hidden lg:block lg:col-span-1 lg:sticky lg:top-8">
+            {purchaseCard}
           </div>
         </div>
       </div>

@@ -18,28 +18,14 @@ export type VideoSource =
 export function resolveVideoUrl(rawUrl: string, lessonId: string): VideoSource {
   const url = rawUrl?.trim() ?? ""
 
-  // ── Private upload streamed through our API ───────────────────────────────
-  if (url.startsWith("local:") || url.startsWith("wasabi:")) {
+  if (!url) return { type: "empty" }
+
+  // ── Private upload or proxy marker ──────────────────────────────────────────
+  if (url.startsWith("local:") || url.startsWith("wasabi:") || url.startsWith("__proxy__")) {
     return { type: "local", src: `/api/video/${lessonId}` }
   }
 
-  // ── Proxy fallback (no CDN configured) ────────────────────────────────────
-  if (url.startsWith("__proxy__")) {
-    const id = url.slice("__proxy__".length)
-    return { type: "local", src: `/api/video/${id}` }
-  }
-
-  // ── Direct CDN or external video URL (https://...) ────────────────────────
-  // When CDN is configured, the API resolves private videos to a direct CDN
-  // URL before sending to the client — treat it as a direct video source.
-  if (/^https?:\/\//i.test(url) && /\.(mp4|webm|ogg|ogv|mov)([?#]|$)/i.test(url)) {
-    return { type: "video", src: url }
-  }
-
-  if (!url) return { type: "empty" }
-
   // ── YouTube ───────────────────────────────────────────────────────────────
-  // Handles: watch?v=, youtu.be/, /shorts/, /live/, /embed/ (already correct)
   const ytId = (
     url.match(/[?&]v=([A-Za-z0-9_-]{11})/) ||
     url.match(/youtu\.be\/([A-Za-z0-9_-]{11})/) ||
@@ -53,7 +39,6 @@ export function resolveVideoUrl(rawUrl: string, lessonId: string): VideoSource {
   }
 
   // ── Vimeo ─────────────────────────────────────────────────────────────────
-  // Handles: vimeo.com/ID, player.vimeo.com/video/ID, vimeo.com/channels/*/ID
   if (/vimeo\.com/.test(url)) {
     const vimeoId = (
       url.match(/player\.vimeo\.com\/video\/(\d+)/) ||
@@ -64,44 +49,11 @@ export function resolveVideoUrl(rawUrl: string, lessonId: string): VideoSource {
     }
   }
 
-  // ── Google Drive ──────────────────────────────────────────────────────────
-  // Share link:  drive.google.com/file/d/FILE_ID/view
-  // Open link:   drive.google.com/open?id=FILE_ID
-  // We use the direct download/stream URL so we can use a <video> tag
-  // instead of an iframe — this gives proper mobile scaling with no Drive UI chrome
-  if (/drive\.google\.com/.test(url)) {
-    const driveId = (
-      url.match(/\/file\/d\/([^/?#]+)/) ||
-      url.match(/[?&]id=([^&]+)/)
-    )?.[1]
-    if (driveId) {
-      // uc?export=download streams the raw file — works as a <video> src
-      // confirm=t bypasses the "large file" warning redirect
-      return {
-        type: "video",
-        src: `https://drive.google.com/uc?export=download&confirm=t&id=${driveId}`,
-      }
-    }
-  }
-
-  // ── Dropbox ───────────────────────────────────────────────────────────────
-  // Regular share links end in ?dl=0 — swap to dl=1 for direct stream
-  // Dropbox blocks iframe embedding, so we serve a direct video tag instead
-  if (/dropbox\.com/.test(url)) {
-    const directUrl = url
-      .replace("www.dropbox.com", "dl.dropboxusercontent.com")
-      .replace(/[?&]dl=\d/, "")
-    return { type: "video", src: directUrl }
-  }
-
-  // ── OneDrive ──────────────────────────────────────────────────────────────
-  // OneDrive embed: onedrive.live.com/embed?...  or 1drv.ms short links
+  // ── OneDrive Embed ────────────────────────────────────────────────────────
   if (/onedrive\.live\.com|1drv\.ms/.test(url)) {
-    // If it's already an embed URL pass through
     if (url.includes("/embed")) {
       return { type: "iframe", src: url }
     }
-    // Regular share link — convert to embed
     const embedUrl = url
       .replace("onedrive.live.com/view.aspx", "onedrive.live.com/embed")
       .replace("onedrive.live.com/redir", "onedrive.live.com/embed")
@@ -109,7 +61,6 @@ export function resolveVideoUrl(rawUrl: string, lessonId: string): VideoSource {
   }
 
   // ── Loom ──────────────────────────────────────────────────────────────────
-  // loom.com/share/ID  →  loom.com/embed/ID
   if (/loom\.com/.test(url)) {
     const loomId = url.match(/loom\.com\/(?:share|embed)\/([A-Za-z0-9]+)/)?.[1]
     if (loomId) {
@@ -141,30 +92,10 @@ export function resolveVideoUrl(rawUrl: string, lessonId: string): VideoSource {
     }
   }
 
-  // ── Direct video file (MP4, WebM, Ogg, MOV) ──────────────────────────────
-  // Matches URLs ending in a video extension, optionally followed by query/hash
-  if (/\.(mp4|webm|ogg|ogv|mov)([?#]|$)/i.test(url)) {
-    return { type: "video", src: url }
-  }
-
-  // ── CDN URLs without extension (e.g. Bunny CDN) ───────────────────────────
-  // If it's an https URL from a known CDN pattern or just has no extension,
-  // try as a direct video source first
-  if (/b-cdn\.net|bunnycdn|cdn\./i.test(url) && /^https:\/\//i.test(url)) {
-    return { type: "video", src: url }
-  }
-
-  // ── Google Drive — catch remaining drive.google.com patterns ─────────────
-  // Some share links don't match /file/d/ — convert to preview embed
-  if (/drive\.google\.com/.test(url)) {
-    return { type: "iframe", src: url }
-  }
-
-  // ── Generic https URL — try as iframe first ───────────────────────────────
-  // Most video hosting platforms support embedding. If the iframe refuses
-  // (X-Frame-Options), the VideoArea component shows an open-in-new-tab fallback.
-  if (/^https?:\/\//i.test(url)) {
-    return { type: "iframe", src: url }
+  // ── All Direct Video Files & Drives (Google Drive, Dropbox, Direct MP4/WebM) ──
+  // Proxy through our protected API endpoint so raw storage URLs are NEVER exposed to client DOM/inspect element
+  if (/^https?:\/\//i.test(url) || /\.(mp4|webm|ogg|ogv|mov)([?#]|$)/i.test(url)) {
+    return { type: "local", src: `/api/video/${lessonId}` }
   }
 
   return { type: "empty" }

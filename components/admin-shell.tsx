@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { LayoutDashboard, BookOpen, ArrowLeft, LogOut, Users, KeyRound, Share2, Settings, MessageSquare, Lock, Award, BadgeIndianRupee, Smartphone, Tag, GraduationCap, Megaphone, PieChart, Receipt } from "lucide-react"
+import { LayoutDashboard, BookOpen, ArrowLeft, LogOut, Users, KeyRound, Share2, Settings, MessageSquare, Lock, Award, BadgeIndianRupee, Smartphone, Tag, GraduationCap, Megaphone, PieChart, Receipt, Wallet, Mail, Briefcase, Menu } from "lucide-react"
 import { useSession } from "@/lib/session"
 import { authApi } from "@/lib/api"
 import { cn, initials } from "@/lib/utils"
@@ -21,10 +21,12 @@ import { PasswordChangeDialog } from "@/components/password-change-dialog"
 const NAV = [
   { href: "/admin",               label: "Dashboard",   icon: LayoutDashboard },
   { href: "/admin/courses",       label: "Courses",      icon: BookOpen         },
+  { href: "/admin/careers",       label: "Careers",      icon: Briefcase        },
   { href: "/admin/students",      label: "Students",     icon: Users            },
   { href: "/admin/instructors",   label: "Instructors",  icon: GraduationCap    },
   { href: "/admin/revenue",       label: "Revenue",     icon: BadgeIndianRupee },
   { href: "/admin/transactions",  label: "Transactions", icon: Receipt          },
+  { href: "/admin/payouts",       label: "Payouts",      icon: Wallet           },
   { href: "/admin/apps",          label: "Apps",        icon: Smartphone       },
   { href: "/admin/community",     label: "Community",   icon: MessageSquare    },
   { href: "/admin/referrals",     label: "Referrals",   icon: Share2          },
@@ -33,6 +35,7 @@ const NAV = [
   { href: "/admin/access",        label: "Access",       icon: Lock            },
   { href: "/admin/marketing",     label: "Marketing",   icon: Megaphone       },
   { href: "/admin/shares",        label: "Shares",      icon: PieChart        },
+  { href: "/admin/email",         label: "Email",       icon: Mail            },
   { href: "/admin/settings",      label: "Settings",    icon: Settings        },
 ]
 
@@ -64,6 +67,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     toast.success("Signed out.")
   }
 
+  const primaryMobileNav = NAV.slice(0, 4)
+
   return (
     <div className="flex min-h-svh bg-background">
       {/* Desktop sidebar */}
@@ -72,7 +77,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <Image src="/logo.png" alt="Edgerax" width={32} height={32} className="rounded-lg bg-black p-1" />
           <span className="font-semibold">Edgerax Admin</span>
         </Link>
-        <nav className="flex flex-col gap-1">
+        <nav className="flex flex-col gap-1 overflow-y-auto pr-1">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href
             return (
@@ -89,7 +94,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             )
           })}
         </nav>
-        <div className="mt-auto flex flex-col gap-1">
+        <div className="mt-auto flex flex-col gap-1 pt-4">
           <Button variant="ghost" className="justify-start" onClick={() => setPasswordOpen(true)}>
             <KeyRound data-icon="inline-start" />Change password
           </Button>
@@ -113,18 +118,29 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between border-b bg-background px-4 py-3 md:hidden">
           <div className="flex items-center gap-2">
             <Image src="/logo.png" alt="Edgerax" width={28} height={28} className="rounded-md bg-black p-1" />
-            <span className="font-semibold">Admin</span>
+            <span className="font-semibold text-sm">Admin</span>
           </div>
-          <div className="flex items-center gap-1">
-            {NAV.map(({ href, label, icon: Icon }) => (
-              <Button key={href} variant={pathname === href ? "secondary" : "ghost"} size="icon"
-                nativeButton={false} render={<Link href={href} />} aria-label={label}>
-                <Icon />
-              </Button>
-            ))}
-            <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/" />} aria-label="Back to site">
-              <ArrowLeft />
-            </Button>
+
+          <div className="flex items-center gap-1.5">
+            {/* Quick Page Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger render={
+                <Button variant="outline" size="sm" className="gap-1 text-xs">
+                  <Menu className="size-3.5" /> Navigation
+                </Button>
+              } />
+              <DropdownMenuContent align="end" className="w-52 max-h-80 overflow-y-auto">
+                <DropdownMenuLabel className="text-xs font-semibold">Admin Pages</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {NAV.map(({ href, label, icon: Icon }) => (
+                  <DropdownMenuItem key={href} render={<Link href={href} />} className={cn("flex items-center gap-2 text-xs", pathname === href && "font-bold text-primary")}>
+                    <Icon className="size-3.5" />
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <DropdownMenu>
               <DropdownMenuTrigger render={
                 <button className="flex items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -153,16 +169,36 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur md:hidden"
           aria-label="Admin navigation">
           <div className="mx-auto flex max-w-md items-stretch justify-around">
-            {NAV.map(({ href, label, icon: Icon }) => (
+            {primaryMobileNav.map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href}
                 className={cn(
-                  "flex flex-1 flex-col items-center gap-1 py-2.5 text-xs transition-colors",
-                  pathname === href ? "text-primary" : "text-muted-foreground hover:text-foreground",
+                  "flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium transition-colors",
+                  pathname === href ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground",
                 )}>
-                <Icon className="size-5" />
+                <Icon className="size-4" />
                 <span>{label}</span>
               </Link>
             ))}
+            <DropdownMenu>
+              <DropdownMenuTrigger render={
+                <button className="flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium text-muted-foreground hover:text-foreground">
+                  <Menu className="size-4" />
+                  <span>More</span>
+                </button>
+              } />
+              <DropdownMenuContent align="end" className="w-56 max-h-80 overflow-y-auto mb-2">
+                {NAV.slice(4).map(({ href, label, icon: Icon }) => (
+                  <DropdownMenuItem key={href} render={<Link href={href} />} className={cn("flex items-center gap-2 text-xs", pathname === href && "font-bold text-primary")}>
+                    <Icon className="size-4" />
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem render={<Link href="/" />} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ArrowLeft className="size-4" />Back to main site
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </nav>
 

@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm"
-import { boolean, datetime, double, int, mysqlTable, varchar } from "drizzle-orm/mysql-core"
+import { boolean, datetime, double, int, mysqlTable, text, varchar } from "drizzle-orm/mysql-core"
 
 const idColumn = (name: string) => varchar(name, { length: 191 })
 const shortText = (name: string) => varchar(name, { length: 512 })
-const longText = (name: string) => varchar(name, { length: 4096 })
+const longText = (name: string) => text(name)
 const urlText = (name: string) => varchar(name, { length: 2048 })
 const dateColumn = (name: string) => datetime(name, { mode: "string" }).notNull().default(sql`CURRENT_TIMESTAMP`)
 
@@ -21,7 +21,7 @@ export const users = tableFactory("users", {
   upiId:     shortText("upi_id").notNull().default(""),
   degree:    shortText("degree").notNull().default(""),
   organization: shortText("organization").notNull().default(""),
-  bio:       longText("bio").notNull().default(""),
+  bio:       longText("bio").notNull(),
   /**
    * Per-user referral reward override (%). null = use global referral_settings value.
    * Applies when this user's referral code is used at purchase time.
@@ -58,8 +58,8 @@ export const courses = tableFactory("courses", {
   category:         shortText("category").notNull(),
   status:           varchar("status", { length: 20 }).notNull().default("recorded"),
   startDate:        datetime("start_date", { mode: "string" }),
-  description:      longText("description").notNull().default(""),
-  shortDescription: longText("short_description").notNull().default(""),
+  description:      longText("description").notNull(),
+  shortDescription: longText("short_description").notNull(),
   duration:         shortText("duration").notNull().default("Self-paced"),
   price:            double("price").notNull().default(0),
   originalPrice:    double("original_price"),
@@ -103,7 +103,7 @@ export const lessons = tableFactory("lessons", {
   videoUrl:        urlText("video_url").notNull().default(""),
   pdfPath:         urlText("pdf_path").notNull().default(""),
   pdfTitle:        shortText("pdf_title").notNull().default(""),
-  pdfDescription:  longText("pdf_description").notNull().default(""),
+  pdfDescription:  longText("pdf_description").notNull(),
   urlLink:         urlText("url_link").notNull().default(""),
   duration:        shortText("duration").notNull().default(""),
   preview:         boolean("preview").notNull().default(false),
@@ -134,9 +134,9 @@ export const communityPosts = tableFactory("community_posts", {
   id:           idColumn("id").primaryKey(),
   userId:       idColumn("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   title:        shortText("title"),
-  body:         longText("body").notNull().default(""),
-  attachments:  longText("attachments").notNull().default("[]"),
-  tags:         longText("tags").notNull().default("[]"),
+  body:         longText("body").notNull(),
+  attachments:  longText("attachments").notNull(),
+  tags:         longText("tags").notNull(),
   pinned:       boolean("pinned").notNull().default(false),
   deleted:      boolean("deleted").notNull().default(false),
   createdAt:    dateColumn("created_at"),
@@ -148,7 +148,7 @@ export const communityComments = tableFactory("community_comments", {
   postId:       idColumn("post_id").notNull().references(() => communityPosts.id, { onDelete: "cascade" }),
   userId:       idColumn("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   parentId:     idColumn("parent_id"),
-  body:         longText("body").notNull().default(""),
+  body:         longText("body").notNull(),
   deleted:      boolean("deleted").notNull().default(false),
   createdAt:    dateColumn("created_at"),
   updatedAt:    dateColumn("updated_at"),
@@ -172,7 +172,7 @@ export const communityReports = tableFactory("community_reports", {
   id:           idColumn("id").primaryKey(),
   postId:       idColumn("post_id").notNull().references(() => communityPosts.id, { onDelete: "cascade" }),
   userId:       idColumn("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  reason:       longText("reason").notNull().default(""),
+  reason:       longText("reason").notNull(),
   createdAt:    dateColumn("created_at"),
 })
 
@@ -180,7 +180,7 @@ export const communityChatMessages = tableFactory("community_chat_messages", {
   id:             idColumn("id").primaryKey(),
   roomId:         idColumn("room_id").notNull().default("general"),
   userId:         idColumn("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  message:        longText("message").notNull().default(""),
+  message:        longText("message").notNull(),
   attachmentUrl:  urlText("attachment_url"),
   attachmentType: varchar("attachment_type", { length: 80 }),
   replyToId:      idColumn("reply_to_id"),
@@ -191,7 +191,7 @@ export const communityChatMessages = tableFactory("community_chat_messages", {
 
 export const communityAnnouncements = tableFactory("community_announcements", {
   id:        idColumn("id").primaryKey(),
-  body:      longText("body").notNull().default(""),
+  body:      longText("body").notNull(),
   createdAt: dateColumn("created_at"),
   updatedAt: dateColumn("updated_at"),
 })
@@ -200,7 +200,7 @@ export const communityNotifications = tableFactory("community_notifications", {
   id:        idColumn("id").primaryKey(),
   userId:    idColumn("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   title:     shortText("title").notNull().default(""),
-  body:      longText("body").notNull().default(""),
+  body:      longText("body").notNull(),
   link:      urlText("link"),
   seen:      boolean("seen").notNull().default(false),
   createdAt: dateColumn("created_at"),
@@ -239,7 +239,7 @@ export const referralEarnings = tableFactory("referral_earnings", {
 
 export const siteSettings = tableFactory("site_settings", {
   key:       varchar("key", { length: 191 }).primaryKey(),
-  value:     longText("value").notNull().default("[]"),
+  value:     longText("value").notNull(),
   updatedAt: dateColumn("updated_at"),
 })
 
@@ -311,6 +311,103 @@ export const revenueShares = tableFactory("revenue_shares", {
   percentage:  double("percentage").notNull().default(0),
   createdAt:   dateColumn("created_at"),
   updatedAt:   dateColumn("updated_at"),
+})
+
+/**
+ * Payout records — admin logs each payment made to an instructor or shareholder.
+ * recipientType: "instructor" | "share"
+ * recipientId:   userId for instructors, revenueShare.id for shares
+ * paymentMethod: "razorpay" | "upi" | "bank" | "cash" | "other"
+ */
+export const payouts = tableFactory("payouts", {
+  id:            idColumn("id").primaryKey(),
+  recipientType: varchar("recipient_type", { length: 20 }).notNull(),
+  recipientId:   idColumn("recipient_id").notNull(),
+  recipientName: shortText("recipient_name").notNull(),
+  amount:        double("amount").notNull(),
+  paymentMethod: varchar("payment_method", { length: 20 }).notNull().default("upi"),
+  paymentRef:    shortText("payment_ref").notNull().default(""),
+  note:          longText("note").notNull(),
+  paidBy:        idColumn("paid_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  paidAt:        dateColumn("paid_at"),
+})
+
+// ─── Internship / Careers ─────────────────────────────────────────────────────
+
+/**
+ * Internship listings created by admin.
+ * Students can browse and apply. Applications can require a registration fee
+ * paid via Razorpay (fee = 0 means free application).
+ */
+export const internships = tableFactory("internships", {
+  id:               idColumn("id").primaryKey(),
+  title:            shortText("title").notNull(),
+  domain:           shortText("domain").notNull().default(""),      // e.g. "Web Dev", "AI"
+  description:      longText("description").notNull(),
+  shortDescription: shortText("short_description").notNull().default(""),
+  duration:         shortText("duration").notNull().default(""),    // e.g. "3 months"
+  stipend:          shortText("stipend").notNull().default("Unpaid"),
+  applicationFee:   double("application_fee").notNull().default(0), // 0 = free application
+  joiningFee:       double("joining_fee").notNull().default(0),     // 0 = free joining (fee collected upon selection)
+  seats:            int("seats").notNull().default(0),              // 0 = unlimited
+  requirements:     longText("requirements").notNull(),
+  perks:            longText("perks").notNull(),        // JSON array of strings
+  status:           varchar("status", { length: 20 }).notNull().default("open"), // open | closed | draft
+  lastDateToApply:  datetime("last_date_to_apply", { mode: "string" }),
+  startDate:        datetime("start_date", { mode: "string" }),
+  thumbnail:        urlText("thumbnail").notNull().default(""),
+  createdAt:        dateColumn("created_at"),
+  updatedAt:        dateColumn("updated_at"),
+})
+
+/**
+ * A student's application for an internship.
+ * status: pending → offered → accepted | rejected
+ *         If applicationFee > 0, application fee paymentId is stored.
+ *         If joiningFee > 0, joining fee paymentId is stored when candidate accepts offer.
+ */
+export const internshipApplications = tableFactory("internship_applications", {
+  id:                  idColumn("id").primaryKey(),
+  internshipId:        idColumn("internship_id").notNull().references(() => internships.id, { onDelete: "cascade" }),
+  userId:              idColumn("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  // Application Fee Payment
+  amount:              double("amount").notNull().default(0),
+  paymentId:           shortText("payment_id").notNull().default(""),
+  paidAt:              datetime("paid_at", { mode: "string" }),
+  // Joining Fee Payment (collected if internship has a joiningFee set by admin)
+  joiningFeeAmount:    double("joining_fee_amount").notNull().default(0),
+  joiningFeePaymentId: shortText("joining_fee_payment_id").notNull().default(""),
+  joiningFeePaidAt:    datetime("joining_fee_paid_at", { mode: "string" }),
+  // Application content
+  resumeUrl:           urlText("resume_url").notNull().default(""),       // path to uploaded PDF
+  coverLetter:         longText("cover_letter").notNull(),
+  // Status: "pending" | "offered" | "accepted" | "rejected"
+  status:              varchar("status", { length: 20 }).notNull().default("pending"),
+  offerLetterUrl:      urlText("offer_letter_url").notNull().default(""),
+  offerSentAt:         datetime("offer_sent_at", { mode: "string" }),
+  adminNote:           longText("admin_note").notNull(),
+  appliedAt:           dateColumn("applied_at"),
+  updatedAt:           dateColumn("updated_at"),
+})
+
+/**
+ * Tasks assigned by admin to an accepted intern.
+ * Each task has a title, description, deadline, and completion status.
+ */
+export const internshipTasks = tableFactory("internship_tasks", {
+  id:             idColumn("id").primaryKey(),
+  applicationId:  idColumn("application_id").notNull().references(() => internshipApplications.id, { onDelete: "cascade" }),
+  internshipId:   idColumn("internship_id").notNull().references(() => internships.id, { onDelete: "cascade" }),
+  userId:         idColumn("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  title:          shortText("title").notNull(),
+  description:    longText("description").notNull(),
+  deadline:       datetime("deadline", { mode: "string" }),
+  status:         varchar("status", { length: 20 }).notNull().default("pending"), // pending | submitted | approved | rejected
+  submissionNote: longText("submission_note").notNull(),
+  submissionUrl:  urlText("submission_url").notNull().default(""),
+  adminFeedback:  longText("admin_feedback").notNull(),
+  createdAt:      dateColumn("created_at"),
+  updatedAt:      dateColumn("updated_at"),
 })
 
 /**

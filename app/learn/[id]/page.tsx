@@ -1,12 +1,24 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import {
-  ArrowLeft, CheckCircle2, ExternalLink, PlayCircle, Clock, FileText,
-  Award, Download, Lock, AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  ExternalLink,
+  PlayCircle,
+  FileText,
+  Award,
+  Download,
+  Lock,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Layers,
+  Check,
 } from "lucide-react"
 import { useSession } from "@/lib/session"
 import { coursesApi, progressApi, purchasesApi } from "@/lib/api"
@@ -17,12 +29,12 @@ import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Spinner } from "@/components/ui/spinner"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-
 import { resolveVideoUrl } from "@/lib/video"
-
-// ─── Certificate types ────────────────────────────────────────────────────────
 
 interface Certificate {
   id:                string
@@ -34,17 +46,14 @@ interface Certificate {
   pdfPath:           string
 }
 
-// ─── Certificate section ──────────────────────────────────────────────────────
-
 function CertificateSection({ courseId, progress }: { courseId: string; progress: number }) {
-  const [cert, setCert]           = useState<Certificate | null | undefined>(undefined) // undefined = loading
+  const [cert, setCert]           = useState<Certificate | null | undefined>(undefined)
   const [nameInput, setNameInput] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [downloading, setDownloading] = useState(false)
 
   const isUnlocked = progress >= 80
 
-  // Load existing certificate on mount
   useEffect(() => {
     fetch(`/api/certificates?courseId=${encodeURIComponent(courseId)}`, { credentials: "include" })
       .then((r) => r.json())
@@ -65,7 +74,7 @@ function CertificateSection({ courseId, progress }: { courseId: string; progress
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? "Failed to generate certificate."); return }
       setCert(data)
-      toast.success("Certificate generated!")
+      toast.success("Certificate generated successfully!")
     } catch {
       toast.error("Something went wrong. Please try again.")
     } finally {
@@ -93,10 +102,9 @@ function CertificateSection({ courseId, progress }: { courseId: string; progress
     }
   }
 
-  // Still loading certificate state
   if (cert === undefined) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 rounded-xl border bg-card p-4 text-sm text-muted-foreground shadow-xs">
         <Spinner className="size-4" /> Checking certificate status…
       </div>
     )
@@ -104,71 +112,73 @@ function CertificateSection({ courseId, progress }: { courseId: string; progress
 
   return (
     <div className={cn(
-      "rounded-xl border bg-card overflow-hidden",
-      !isUnlocked && "opacity-80",
+      "rounded-xl border bg-card shadow-xs overflow-hidden transition-all",
+      !isUnlocked && "opacity-90",
     )}>
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-3">
+      <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-3.5">
         <div className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-full",
-          cert ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+          "flex size-9 shrink-0 items-center justify-center rounded-full shadow-xs",
+          cert ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
                : isUnlocked ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
         )}>
-          {cert ? <Award className="size-4" /> : isUnlocked ? <Award className="size-4" /> : <Lock className="size-4" />}
+          {cert ? <Award className="size-5" /> : isUnlocked ? <Award className="size-5" /> : <Lock className="size-5" />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm">Certificate of Completion</p>
+          <p className="font-semibold text-sm leading-snug">Certificate of Completion</p>
           <p className="text-xs text-muted-foreground">
             {cert
               ? `Issued · ${cert.certificateNumber}`
               : isUnlocked
-                ? "You've unlocked your certificate"
+                ? "You've unlocked your official certificate"
                 : `Complete at least 80% to unlock · ${progress}% done`}
           </p>
         </div>
         {!isUnlocked && (
-          <Badge variant="secondary" className="shrink-0">
+          <Badge variant="outline" className="shrink-0 font-mono text-xs">
             {progress}% / 80%
           </Badge>
         )}
       </div>
 
-      <div className="p-4">
-        {/* Locked state */}
+      <div className="p-5">
         {!isUnlocked && (
           <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <Lock className="size-8 text-muted-foreground" />
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted/50 text-muted-foreground">
+              <Lock className="size-6" />
+            </div>
             <div>
-              <p className="font-medium text-sm">Almost there!</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Complete {80 - progress}% more of this course to unlock your certificate.
+              <p className="font-semibold text-base">Keep Going! You&apos;re Almost There</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+                Complete {Math.max(0, 80 - progress)}% more of this course to claim your verified certificate of completion.
               </p>
             </div>
-            <div className="w-full max-w-xs">
-              <Progress value={progress} className="h-2" />
-              <p className="mt-1 text-xs text-muted-foreground text-right">{progress}% of 80% required</p>
+            <div className="w-full max-w-xs space-y-1">
+              <Progress value={progress} className="h-2.5" />
+              <div className="flex justify-between text-[11px] text-muted-foreground">
+                <span>{progress}% completed</span>
+                <span>80% required</span>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Unlocked — no certificate yet: name entry */}
         {isUnlocked && !cert && (
           <div className="flex flex-col gap-4">
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
-              <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
               <span>
-                <strong>Important:</strong> The name you enter below will be printed on your certificate and{" "}
-                <strong>cannot be changed</strong> after submission.
+                <strong>Important:</strong> The name you enter below will be printed on your official certificate and{" "}
+                <strong>cannot be changed</strong> once generated.
               </span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="cert-name" className="text-xs font-medium text-foreground">
-                Full name for certificate
+            <div className="flex flex-col gap-2">
+              <label htmlFor="cert-name" className="text-xs font-semibold text-foreground">
+                Full Name for Certificate
               </label>
               <div className="flex gap-2">
                 <Input
                   id="cert-name"
-                  placeholder="Enter your full name exactly as you want it printed"
+                  placeholder="Enter your full legal name"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !submitting && handleSubmitName()}
@@ -178,45 +188,41 @@ function CertificateSection({ courseId, progress }: { courseId: string; progress
                 />
                 <Button onClick={handleSubmitName} disabled={submitting || !nameInput.trim()}>
                   {submitting ? <Spinner data-icon="inline-start" /> : <Award data-icon="inline-start" />}
-                  {submitting ? "Generating…" : "Get Certificate"}
+                  {submitting ? "Generating…" : "Generate Certificate"}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                This name will appear on your official certificate. Double-check before submitting.
-              </p>
             </div>
           </div>
         )}
 
-        {/* Certificate issued — download */}
         {cert && (
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3 text-xs sm:grid-cols-4">
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3.5 text-xs sm:grid-cols-4">
               <div>
-                <p className="font-medium text-muted-foreground">Name on certificate</p>
-                <p className="mt-0.5 font-semibold">{cert.certificateName}</p>
+                <p className="font-medium text-muted-foreground">Name on Certificate</p>
+                <p className="mt-0.5 font-semibold text-foreground">{cert.certificateName}</p>
               </div>
               <div>
-                <p className="font-medium text-muted-foreground">Certificate no.</p>
-                <p className="mt-0.5 font-mono font-semibold">{cert.certificateNumber}</p>
+                <p className="font-medium text-muted-foreground">Certificate ID</p>
+                <p className="mt-0.5 font-mono font-semibold text-foreground">{cert.certificateNumber}</p>
               </div>
               <div>
-                <p className="font-medium text-muted-foreground">Issued on</p>
-                <p className="mt-0.5 font-semibold">
+                <p className="font-medium text-muted-foreground">Issued On</p>
+                <p className="mt-0.5 font-semibold text-foreground">
                   {new Date(cert.issuedAt).toLocaleDateString(undefined, {
                     year: "numeric", month: "short", day: "numeric",
                   })}
                 </p>
               </div>
               <div>
-                <p className="font-medium text-muted-foreground">Issued by</p>
-                <p className="mt-0.5 font-semibold">Edgerax</p>
+                <p className="font-medium text-muted-foreground">Issued By</p>
+                <p className="mt-0.5 font-semibold text-foreground">Edgerax</p>
               </div>
             </div>
-            <Button onClick={handleDownload} disabled={downloading} className="w-full sm:w-auto">
+            <Button onClick={handleDownload} disabled={downloading} className="w-full sm:w-auto self-start gap-2">
               {downloading
-                ? <><Spinner data-icon="inline-start" />Downloading…</>
-                : <><Download data-icon="inline-start" />Download Certificate (PDF)</>}
+                ? <><Spinner className="size-4" /> Downloading…</>
+                : <><Download className="size-4" /> Download Certificate (PDF)</>}
             </Button>
           </div>
         )}
@@ -225,40 +231,26 @@ function CertificateSection({ courseId, progress }: { courseId: string; progress
   )
 }
 
-interface FlatLesson { chapterTitle: string; lesson: Lesson }
+interface FlatLesson { chapterTitle: string; lesson: Lesson; chapterIndex: number; lessonIndex: number; globalIndex: number }
 
 function PdfArea({ lesson }: { lesson: Lesson | null }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState("")
   const [downloading, setDownloading] = useState(false)
 
-  useEffect(() => {
-    if (!lesson || lesson.lessonType !== "PDF" || !lesson.pdfPath) {
-      setBlobUrl(null); setError(""); return
-    }
-    setLoading(true); setError(""); setBlobUrl(null)
-    fetch(lesson.pdfPath, { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load PDF (${res.status})`)
-        const blob = await res.blob()
-        setBlobUrl(URL.createObjectURL(blob))
-      })
-      .catch((e) => setError(e.message ?? "Failed to load PDF."))
-      .finally(() => setLoading(false))
-    return () => {
-      setBlobUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null })
-    }
-  }, [lesson?.id, lesson?.pdfPath])
-
-  function handleDownload() {
-    if (!blobUrl) return
+  async function handleDownload() {
+    if (!lesson?.pdfPath) return
     setDownloading(true)
     try {
-      const a = document.createElement("a")
-      a.href = blobUrl
-      a.download = (lesson?.pdfTitle || lesson?.title || "lesson") + ".pdf"
+      const res = await fetch(lesson.pdfPath, { credentials: "include" })
+      if (!res.ok) throw new Error(`Download failed (${res.status})`)
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement("a")
+      a.href     = url
+      a.download = (lesson.pdfTitle || lesson.title || "lesson") + ".pdf"
       a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // silently ignore — user will see nothing happened and can retry
     } finally {
       setDownloading(false)
     }
@@ -268,58 +260,57 @@ function PdfArea({ lesson }: { lesson: Lesson | null }) {
 
   if (!lesson.pdfPath) {
     return (
-      <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border bg-muted/30 p-6 text-center">
-        <FileText className="size-12 text-muted-foreground" />
-        <p className="mt-3 font-medium">PDF is not available yet.</p>
-        <p className="text-sm text-muted-foreground">Upload a PDF for this lesson to view it here.</p>
+      <div className="flex h-full min-h-[240px] flex-col items-center justify-center rounded-xl border border-dashed bg-card p-8 text-center">
+        <FileText className="size-10 text-muted-foreground/40 mb-3" />
+        <p className="font-semibold text-sm text-foreground">No document attached</p>
+        <p className="text-xs text-muted-foreground mt-1">The study material for this lesson hasn't been uploaded yet.</p>
       </div>
     )
   }
 
+  const title = lesson.pdfTitle || lesson.title || "Lesson Document"
+  const description = lesson.pdfDescription?.trim()
+
   return (
-    <div className="w-full overflow-hidden rounded-xl border bg-background">
-      <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-2 text-sm">
-        <div className="min-w-0">
-          <p className="font-medium truncate">{lesson.pdfTitle || lesson.title}</p>
-          <p className="text-xs text-muted-foreground">Scroll to navigate · use the button to download</p>
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card shadow-xs">
+      {/* Red accent top bar */}
+      <div className="h-1 w-full bg-gradient-to-r from-red-500 via-red-400 to-orange-400" />
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-8">
+        <div className="flex items-start gap-5">
+          {/* PDF icon badge */}
+          <div className="flex shrink-0 flex-col items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-3.5 dark:border-red-900/40 dark:bg-red-950/30">
+            <FileText className="size-7 text-red-500 dark:text-red-400" />
+            <span className="mt-1.5 text-[10px] font-bold uppercase tracking-widest text-red-500 dark:text-red-400">PDF</span>
+          </div>
+
+          {/* Text content */}
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-base sm:text-lg text-foreground leading-snug truncate">{title}</p>
+            {description ? (
+              <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed line-clamp-3">{description}</p>
+            ) : (
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Course study material — download to read offline on any device.
+              </p>
+            )}
+
+            <p className="mt-3 text-xs font-medium text-muted-foreground">PDF Document</p>
+          </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-3 shrink-0 gap-1.5"
-          onClick={handleDownload}
-          disabled={!blobUrl || downloading}
-          aria-label="Download PDF"
-        >
-          <Download className="size-3.5" />
-          <span className="hidden sm:inline">Download PDF</span>
-        </Button>
-      </div>
-      <div className="h-[80vh] bg-muted/20">
-        {loading && (
-          <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
-            <Spinner className="size-5" />
-            <span className="text-sm">Loading PDF…</span>
-          </div>
-        )}
-        {error && (
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-            <FileText className="size-10 text-muted-foreground" />
-            <p className="font-medium text-sm">Failed to load PDF</p>
-            <p className="text-xs text-muted-foreground">{error}</p>
-            <p className="text-xs text-muted-foreground">
-              Try refreshing the page or contact support if the issue persists.
-            </p>
-          </div>
-        )}
-        {blobUrl && (
-          <iframe
-            src={blobUrl}
-            title={lesson.pdfTitle || lesson.title}
-            className="h-full w-full border-0"
-            aria-label={lesson.pdfTitle || lesson.title}
-          />
-        )}
+
+        {/* Divider + action */}
+        <div className="sticky bottom-0 -mx-4 mt-auto flex items-center justify-end border-t bg-card/95 px-4 pt-4 backdrop-blur sm:-mx-8 sm:px-8 sm:pt-5">
+          <Button
+            onClick={handleDownload}
+            disabled={downloading}
+            className="w-full shrink-0 gap-2 bg-red-500 text-white shadow-sm hover:bg-red-600 sm:w-auto dark:bg-red-600 dark:hover:bg-red-700"
+          >
+            {downloading
+              ? <><Spinner data-icon="inline-start" /> Downloading…</>
+              : <><Download data-icon="inline-start" /> Download PDF</>}
+          </Button>
+        </div>
       </div>
     </div>
   )
@@ -329,65 +320,83 @@ function LinkArea({ lesson }: { lesson: Lesson | null }) {
   if (!lesson || lesson.lessonType !== "URL") return null
 
   const raw = (lesson.urlLink || lesson.videoUrl || "").trim()
-
-  // Ensure the URL has a protocol so the browser doesn't treat it as a
-  // relative path (which would prepend the current origin).
   const url = raw && !/^https?:\/\//i.test(raw) ? `https://${raw}` : raw
+
+  // Try to extract a readable hostname for display
+  let hostname = ""
+  try { hostname = new URL(url).hostname.replace(/^www\./, "") } catch { /* ignore */ }
 
   if (!url) {
     return (
-      <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border bg-muted/30 p-6 text-center">
-        <ExternalLink className="size-12 text-muted-foreground" />
-        <p className="mt-3 font-medium">URL is not available yet.</p>
-        <p className="text-sm text-muted-foreground">Add a valid URL for this lesson in the admin panel.</p>
+      <div className="flex h-full min-h-[240px] flex-col items-center justify-center rounded-xl border border-dashed bg-card p-8 text-center">
+        <ExternalLink className="size-10 text-muted-foreground/40 mb-3" />
+        <p className="font-semibold text-sm text-foreground">No link attached</p>
+        <p className="text-xs text-muted-foreground mt-1">No external resource was provided for this lesson.</p>
       </div>
     )
   }
 
   return (
-    <div className="w-full rounded-xl border bg-background p-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <ExternalLink className="size-5" />
-          <div>
-            <p className="font-medium">Open link</p>
-            <p className="truncate text-xs">{raw}</p>
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border bg-card shadow-xs">
+      {/* Blue accent top bar */}
+      <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-blue-400 to-cyan-400" />
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-8">
+        <div className="flex items-start gap-5">
+          {/* Link icon badge */}
+          <div className="flex shrink-0 flex-col items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-3.5 dark:border-blue-900/40 dark:bg-blue-950/30">
+            <ExternalLink className="size-7 text-blue-500 dark:text-blue-400" />
+            <span className="mt-1.5 text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">Link</span>
+          </div>
+
+          {/* Text content */}
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-base sm:text-lg text-foreground leading-snug truncate">{lesson.title}</p>
+            <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+              External resource for this lesson. Opens in a new tab.
+            </p>
+
+            {hostname && <p className="mt-3 truncate text-xs font-medium text-muted-foreground">{hostname}</p>}
           </div>
         </div>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex w-full justify-center rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          Open external lesson link
-        </a>
+
+        {/* Divider + action */}
+        <div className="sticky bottom-0 -mx-4 mt-auto flex items-center justify-end border-t bg-card/95 px-4 pt-4 backdrop-blur sm:-mx-8 sm:px-8 sm:pt-5">
+          <Button
+            nativeButton={false}
+            render={<a href={url} target="_blank" rel="noopener noreferrer" />}
+            className="w-full shrink-0 gap-2 bg-blue-500 text-white shadow-sm hover:bg-blue-600 sm:w-auto dark:bg-blue-600 dark:hover:bg-blue-700"
+          >
+            Open Link <ExternalLink data-icon="inline-end" />
+          </Button>
+        </div>
       </div>
     </div>
   )
 }
 
-function VideoArea({ lesson, lessonId }: { lesson: Lesson | null; lessonId: string | null }) {
+function VideoArea({
+  lesson,
+  lessonId,
+  onEnded,
+}: {
+  lesson: Lesson | null
+  lessonId: string | null
+  onEnded?: () => void
+}) {
   const [videoError, setVideoError] = useState(false)
   const [errorMsg, setErrorMsg]     = useState("")
 
-  // Reset on lesson change
   useEffect(() => { setVideoError(false); setErrorMsg("") }, [lessonId])
 
   if (!lesson || !lessonId || lesson.lessonType === "PDF" || lesson.lessonType === "URL") return null
 
   const source = resolveVideoUrl(lesson.videoUrl ?? "", lessonId)
-
-  // ── Determine if this is an "owned" video (uploaded by us)
-  // These should NEVER fall back to "open in new tab" — always render a player
   const isOwnVideo = source.type === "local" || source.type === "video"
 
   return (
-    <div className="w-full overflow-hidden rounded-xl border bg-black">
-      {/* 16:9 intrinsic ratio wrapper */}
+    <div className="w-full overflow-hidden bg-black shadow-xl">
       <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-
-        {/* ── iframe sources (YouTube, Vimeo, etc.) ── */}
         {source.type === "iframe" && (
           <iframe
             key={source.src}
@@ -400,21 +409,22 @@ function VideoArea({ lesson, lessonId }: { lesson: Lesson | null; lessonId: stri
           />
         )}
 
-        {/* ── Video sources: local proxy, CDN URL, or direct file ── */}
         {isOwnVideo && !videoError && (
           <video
             key={source.src}
             src={source.src}
             controls
             playsInline
+            preload="auto"
+            crossOrigin="anonymous"
+            onEnded={onEnded}
             onContextMenu={(e) => e.preventDefault()}
             controlsList="nodownload"
             onError={(e) => {
               const vid = e.currentTarget as HTMLVideoElement
               const code = vid.error?.code
               const msg  = vid.error?.message ?? ""
-              // MediaError codes: 1=ABORTED 2=NETWORK 3=DECODE 4=SRC_NOT_SUPPORTED
-              setErrorMsg(`Video error (code ${code ?? "?"}: ${msg || "unknown"}) — src: ${source.src}`)
+              setErrorMsg(`Video playback error (${code ?? "?"}: ${msg || "unknown format"})`)
               setVideoError(true)
             }}
             style={{
@@ -425,51 +435,48 @@ function VideoArea({ lesson, lessonId }: { lesson: Lesson | null; lessonId: stri
           />
         )}
 
-        {/* ── Error state for own videos — show diagnostic info, not "open in new tab" ── */}
         {isOwnVideo && videoError && (
           <div
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-            className="flex flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white"
+            className="flex flex-col items-center justify-center gap-3 bg-black/95 px-6 text-center text-white"
           >
             <PlayCircle className="size-12 opacity-50" />
-            <p className="text-sm font-medium">Video failed to load</p>
+            <p className="text-sm font-medium">Video player encountered an error</p>
             <p className="max-w-xs text-xs opacity-60 break-all">{errorMsg}</p>
             <button
               onClick={() => { setVideoError(false); setErrorMsg("") }}
-              className="mt-1 rounded-md bg-white/10 px-4 py-1.5 text-xs hover:bg-white/20"
+              className="mt-2 rounded-md bg-white/10 px-4 py-1.5 text-xs hover:bg-white/20 transition-colors"
             >
-              Retry
+              Try Reloading
             </button>
           </div>
         )}
 
-        {/* ── "open" type — truly unembeddable external URLs ── */}
         {source.type === "open" && (
           <div
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
             className="flex flex-col items-center justify-center gap-4 bg-black px-6 text-center text-white"
           >
             <PlayCircle className="size-14 opacity-70" />
-            <p className="text-sm opacity-80">This video can&apos;t be embedded directly.</p>
+            <p className="text-sm opacity-80">This video source requires opening directly in browser.</p>
             <a
               href={source.src}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
-              Open video in new tab
+              Open Video Stream
             </a>
           </div>
         )}
 
-        {/* ── Empty placeholder ── */}
         {source.type === "empty" && (
           <div
             style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
             className="flex flex-col items-center justify-center gap-3 bg-black text-white"
           >
-            <PlayCircle className="size-16 opacity-50" />
-            <p className="px-4 text-center text-sm opacity-60">No video for this lesson yet.</p>
+            <PlayCircle className="size-16 opacity-40" />
+            <p className="px-4 text-center text-sm opacity-60">No video attached to this lesson.</p>
           </div>
         )}
       </div>
@@ -489,48 +496,114 @@ function LessonTypeIcon({ lessonType, className }: { lessonType?: Lesson["lesson
   }
 }
 
-function LessonList({ chapters, activeId, completed, owned, onSelect }: {
-  chapters: Chapter[]; activeId: string | null; completed: Set<string>; owned: boolean; onSelect: (l: Lesson) => void
+function ChapterAccordion({
+  chapter,
+  chapterIndex,
+  activeId,
+  completed,
+  owned,
+  onSelect,
+  isOpen,
+  onToggle,
+}: {
+  chapter: Chapter
+  chapterIndex: number
+  activeId: string | null
+  completed: Set<string>
+  owned: boolean
+  onSelect: (l: Lesson) => void
+  isOpen: boolean
+  onToggle: () => void
 }) {
+  const completedCount = chapter.lessons.filter((l) => completed.has(l.id)).length
+  const totalCount = chapter.lessons.length
+  const chapterProgress = totalCount ? Math.round((completedCount / totalCount) * 100) : 0
+  const hasActive = chapter.lessons.some((l) => l.id === activeId)
+
   return (
-    <div className="flex flex-col gap-4">
-      {chapters.map((ch, idx) => (
-        <div key={ch.id} className="flex flex-col gap-1">
-          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {String(idx + 1).padStart(2, "0")} · {ch.title}
-          </p>
-          {ch.lessons.map((l) => {
+    <div className="border-b border-border/50 last:border-b-0">
+      <button
+        onClick={onToggle}
+        className={cn(
+          "flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40",
+          hasActive && "bg-muted/30 font-medium"
+        )}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Module {chapterIndex + 1}
+            </span>
+            <span className="text-[11px] text-muted-foreground">· {completedCount}/{totalCount} done</span>
+          </div>
+          <p className="truncate text-xs sm:text-sm font-semibold text-foreground mt-0.5">{chapter.title}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {totalCount > 0 && (
+            <div className="hidden sm:block w-12 bg-muted rounded-full h-1.5 overflow-hidden">
+              <div className="bg-primary h-full transition-all" style={{ width: `${chapterProgress}%` }} />
+            </div>
+          )}
+          <ChevronDown
+            className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-200", isOpen && "rotate-180")}
+          />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="bg-muted/10 pb-1">
+          {chapter.lessons.map((l) => {
             const isActive = l.id === activeId
             const isDone = completed.has(l.id)
             const isLocked = !owned && !l.preview
             return (
-              <button key={l.id}
+              <button
+                key={l.id}
                 onClick={() => !isLocked && onSelect(l)}
                 disabled={isLocked}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-                  isActive ? "bg-primary/10 text-primary" : isLocked ? "cursor-not-allowed opacity-50" : "hover:bg-muted",
-                )}>
-                <div className="relative flex size-5 shrink-0 items-center justify-center">
-                  {isLocked
-                    ? <Lock className="size-4 shrink-0 text-muted-foreground" />
-                    : <LessonTypeIcon lessonType={l.lessonType} className="size-4 shrink-0 text-muted-foreground" />
-                  }
-                  {isDone && !isLocked && <CheckCircle2 className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full bg-background text-primary" />}
-                </div>
-                <span className="flex-1 leading-snug">{l.title}</span>
-                {l.preview && !owned && (
-                  <Badge variant="outline" className="shrink-0 text-xs">Free</Badge>
+                  "group flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs sm:text-sm transition-all relative",
+                  isActive
+                    ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary pl-3"
+                    : isLocked
+                    ? "cursor-not-allowed opacity-50 hover:bg-transparent"
+                    : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
                 )}
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <LessonTypeIcon lessonType={l.lessonType} className="size-3" />
-                  {l.duration}
-                </span>
+              >
+                <div className="relative flex size-5 shrink-0 items-center justify-center">
+                  {isDone ? (
+                    <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                  ) : isLocked ? (
+                    <Lock className="size-3.5 text-muted-foreground shrink-0" />
+                  ) : (
+                    <LessonTypeIcon
+                      lessonType={l.lessonType}
+                      className={cn("size-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")}
+                    />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className={cn("truncate leading-snug", isActive && "text-primary")}>
+                    {l.title}
+                  </p>
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                    <span>{l.lessonType === "PDF" ? "PDF" : l.lessonType === "URL" ? "URL" : "Video"}</span>
+                    {l.duration && <span>· {l.duration}</span>}
+                    {l.preview && !owned && (
+                      <Badge variant="secondary" className="px-1 py-0 text-[9px] h-4">Free Preview</Badge>
+                    )}
+                  </div>
+                </div>
+
+                {isActive && (
+                  <div className="size-2 rounded-full bg-primary animate-pulse shrink-0" />
+                )}
               </button>
             )
           })}
         </div>
-      ))}
+      )}
     </div>
   )
 }
@@ -541,12 +614,16 @@ export default function PlayerPage() {
   const searchParams = useSearchParams()
   const { user, ready } = useSession()
 
-  const [course, setCourse]           = useState<Course | null>(null)
-  const [completedIds, setCompleted]  = useState<Set<string>>(new Set())
-  const [activeId, setActiveId]       = useState<string | null>(null)
-  const [loadingCourse, setLoadingCourse] = useState(true)
-  const [marking, setMarking]         = useState(false)
-  const [owned, setOwned]             = useState(false)
+  const [course, setCourse]                   = useState<Course | null>(null)
+  const [completedIds, setCompleted]          = useState<Set<string>>(new Set())
+  const [progressReady, setProgressReady]     = useState(false)
+  const [ownershipReady, setOwnershipReady]   = useState(false)
+  const [activeId, setActiveId]               = useState<string | null>(null)
+  const [loadingCourse, setLoadingCourse]     = useState(true)
+  const [marking, setMarking]                 = useState(false)
+  const [owned, setOwned]                     = useState(false)
+  const [autoAdvance, setAutoAdvance]         = useState(true)
+  const [openChapters, setOpenChapters]       = useState<Record<string, boolean>>({})
 
   // Load course
   useEffect(() => {
@@ -555,84 +632,234 @@ export default function PlayerPage() {
 
   // Load progress
   useEffect(() => {
-    if (user && params.id) {
-      progressApi.get(params.id).then((ids) => setCompleted(new Set(ids))).catch(() => {})
+    if (!ready) return
+    if (!user || !params.id) {
+      // Not logged in — no progress to load, mark as ready so lesson selection proceeds
+      setProgressReady(true)
+      return
     }
-  }, [user, params.id])
+    progressApi.get(params.id)
+      .then((ids) => setCompleted(new Set(ids)))
+      .catch(() => {})
+      .finally(() => setProgressReady(true))
+  }, [user, ready, params.id])
 
-  // Access control — allow free-preview access; only purchased users get full access
+  // Access control check
   useEffect(() => {
     if (!ready) return
     if (!course) return
 
-    // Check if the course has any free preview lessons
     const hasPreview = course.chapters.some((ch) => ch.lessons.some((l) => l.preview))
 
     if (!user) {
-      // Unauthenticated users may only stay if there are free previews
       if (!hasPreview) {
         router.push(`/auth?redirect=/learn/${params.id}`)
       }
+      // Not logged in — ownership resolved (false), unblock lesson selection
+      setOwnershipReady(true)
       return
     }
 
-    // Authenticated — check purchase status
     purchasesApi.list().then((ps) => {
       const purchase = ps.find((p) => p.courseId === params.id)
       if (!purchase) {
-        // No purchase — allow if there are free previews, otherwise redirect
         if (!hasPreview) {
           router.push(`/courses/${params.id}`)
         }
+        setOwnershipReady(true)
         return
       }
-      // Check expiry
       if (purchase.expiresAt && new Date(purchase.expiresAt) <= new Date()) {
         router.push(`/courses/${params.id}?expired=1`)
+        setOwnershipReady(true)
         return
       }
       setOwned(true)
-    }).catch(() => {})
+      setOwnershipReady(true)
+    }).catch(() => { setOwnershipReady(true) })
   }, [ready, user, course, params.id, router])
 
+  // Flatten lessons for linear navigation
   const flat: FlatLesson[] = useMemo(() => {
     if (!course) return []
-    return course.chapters.flatMap((ch) => ch.lessons.map((lesson) => ({ chapterTitle: ch.title, lesson })))
+    let flatIndex = 0
+    return course.chapters.flatMap((ch, chIdx) =>
+      ch.lessons.map((lesson, lIdx) => ({
+        chapterTitle: ch.title,
+        lesson,
+        chapterIndex: chIdx,
+        lessonIndex: lIdx,
+        globalIndex: flatIndex++,
+      }))
+    )
   }, [course])
 
+  // Save active lesson ID to localStorage whenever student switches lessons
   useEffect(() => {
-    if (flat.length && !activeId) {
-      // Use ?lesson= param if present and valid, otherwise default to first available lesson
-      const requestedId = searchParams.get("lesson")
-      const requestedLesson = requestedId ? flat.find((f) => f.lesson.id === requestedId) : null
-      const firstLesson = owned
-        ? flat[0].lesson
-        : (flat.find((f) => f.lesson.preview)?.lesson ?? flat[0].lesson)
-      setActiveId(requestedLesson?.lesson.id ?? firstLesson.id)
+    if (activeId && params.id) {
+      try {
+        localStorage.setItem(`last_lesson_${params.id}`, activeId)
+      } catch { /* ignore */ }
     }
-  }, [flat, activeId, owned, searchParams])
+  }, [activeId, params.id])
 
-  const activeLesson = flat.find((f) => f.lesson.id === activeId)?.lesson ?? null
+  // Auto-restore last watched lesson or resume uncompleted lesson.
+  // Wait for BOTH progress and ownership to be resolved before selecting —
+  // otherwise we pick a lesson before knowing which are completed or whether
+  // the user is an owner, then activeId is set and the effect never re-runs.
+  useEffect(() => {
+    if (!flat.length || !progressReady || !ownershipReady || activeId) return
+
+    // 1. Explicit URL parameter ?lesson=
+    const requestedId = searchParams.get("lesson")
+    const requestedLesson = requestedId ? flat.find((f) => f.lesson.id === requestedId) : null
+
+    // 2. Last watched lesson stored in student's localStorage
+    let savedLesson = null
+    if (typeof window !== "undefined" && params.id) {
+      try {
+        const savedId = localStorage.getItem(`last_lesson_${params.id}`)
+        if (savedId) {
+          savedLesson = flat.find((f) => f.lesson.id === savedId) ?? null
+        }
+      } catch { /* ignore */ }
+    }
+
+    // 3. First uncompleted lesson fallback
+    const firstUncompleted = flat.find((f) => !completedIds.has(f.lesson.id))?.lesson
+
+    // Selection priority:
+    // - Explicit ?lesson= URL param wins
+    // - Then last saved lesson — but only if it hasn't been completed yet
+    // - Then first uncompleted lesson (the core "resume" behaviour)
+    // - Then very first lesson if everything is complete
+    const resumeLesson = savedLesson && !completedIds.has(savedLesson.lesson.id)
+      ? savedLesson.lesson
+      : firstUncompleted
+
+    const defaultLesson = owned
+      ? (resumeLesson ?? flat[0].lesson)
+      : (flat.find((f) => f.lesson.preview)?.lesson ?? flat[0].lesson)
+
+    setActiveId(requestedLesson?.lesson.id ?? defaultLesson.id)
+  }, [flat, activeId, owned, progressReady, ownershipReady, searchParams, params.id, completedIds])
+
+  // Automatically expand chapter containing the active lesson
+  useEffect(() => {
+    if (!activeId || !course) return
+    const activeChapter = course.chapters.find((ch) =>
+      ch.lessons.some((l) => l.id === activeId)
+    )
+    if (activeChapter) {
+      setOpenChapters((prev) => ({ ...prev, [activeChapter.id]: true }))
+    }
+  }, [activeId, course])
+
+  const toggleChapter = (chId: string) => {
+    setOpenChapters((prev) => ({ ...prev, [chId]: !prev[chId] }))
+  }
+
+  const activeLessonIndex = useMemo(() => {
+    return flat.findIndex((f) => f.lesson.id === activeId)
+  }, [flat, activeId])
+
+  const activeLessonObj = activeLessonIndex >= 0 ? flat[activeLessonIndex] : null
+  const activeLesson    = activeLessonObj?.lesson ?? null
+
+  const prevLessonObj = activeLessonIndex > 0 ? flat[activeLessonIndex - 1] : null
+  const nextLessonObj = activeLessonIndex >= 0 && activeLessonIndex < flat.length - 1 ? flat[activeLessonIndex + 1] : null
+
   const progress = flat.length ? Math.round((completedIds.size / flat.length) * 100) : 0
-  // Can the active lesson be viewed? Owned users can view all; others only free previews.
   const canViewActive = owned || Boolean(activeLesson?.preview)
 
-  async function markComplete() {
+  const goToPrev = useCallback(() => {
+    if (prevLessonObj) {
+      const isLocked = !owned && !prevLessonObj.lesson.preview
+      if (!isLocked) {
+        setActiveId(prevLessonObj.lesson.id)
+      } else {
+        toast.error("Previous lesson is locked.")
+      }
+    }
+  }, [prevLessonObj, owned])
+
+  const goToNext = useCallback(() => {
+    if (nextLessonObj) {
+      const isLocked = !owned && !nextLessonObj.lesson.preview
+      if (!isLocked) {
+        setActiveId(nextLessonObj.lesson.id)
+      } else {
+        toast.error("Next lesson is locked.")
+      }
+    }
+  }, [nextLessonObj, owned])
+
+  const markAndNext = useCallback(async () => {
     if (!activeLesson || marking || !owned) return
     setMarking(true)
     try {
       await progressApi.mark(activeLesson.id)
       setCompleted((prev) => new Set(prev).add(activeLesson.id))
-      const idx = flat.findIndex((f) => f.lesson.id === activeLesson.id)
-      if (idx >= 0 && idx < flat.length - 1) setActiveId(flat[idx + 1].lesson.id)
-    } catch { /* ignore */ } finally {
+      toast.success("Lesson completed!")
+      if (nextLessonObj) {
+        const isLocked = !owned && !nextLessonObj.lesson.preview
+        if (!isLocked) {
+          setActiveId(nextLessonObj.lesson.id)
+        }
+      }
+    } catch {
+      toast.error("Could not update progress.")
+    } finally {
       setMarking(false)
     }
-  }
+  }, [activeLesson, marking, owned, nextLessonObj])
+
+  const handleVideoEnded = useCallback(() => {
+    if (autoAdvance && activeLesson && owned) {
+      markAndNext()
+    }
+  }, [autoAdvance, activeLesson, owned, markAndNext])
+
+  // Keyboard navigation shortcuts
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault()
+        goToPrev()
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault()
+        goToNext()
+      } else if (e.key === "m" || e.key === "M") {
+        e.preventDefault()
+        if (activeLesson && owned) {
+          markAndNext()
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [goToPrev, goToNext, markAndNext, activeLesson, owned])
 
   if (loadingCourse || !ready) {
-    return <div className="flex min-h-svh items-center justify-center"><Spinner className="size-8" /></div>
+    return (
+      <div className="flex min-h-svh flex-col items-center justify-center gap-3 bg-background">
+        <Spinner className="size-8 text-primary" />
+        <p className="text-sm text-muted-foreground animate-pulse">Loading lecture environment…</p>
+      </div>
+    )
   }
+
   if (!course) {
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-4">
@@ -643,191 +870,272 @@ export default function PlayerPage() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
-        <div className="flex h-14 items-center justify-between gap-3 px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <Button variant="ghost" size="icon-sm" nativeButton={false} render={<Link href={`/courses/${course.id}`} />}>
-              <ArrowLeft />
+    <div className="flex min-h-svh flex-col bg-background selection:bg-primary/20">
+      {/* ── Navbar ── */}
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur-md shadow-2xs">
+        <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-5">
+          {/* Left: Back & Course info */}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              nativeButton={false}
+              render={<Link href={`/courses/${course.id}`} />}
+              className="shrink-0"
+              title="Return to course details"
+            >
+              <ArrowLeft className="size-4" />
             </Button>
-            <Image src="/logo.png" alt="Edgerax" width={28} height={28} className="rounded-md bg-black p-1" />
-            <p className="truncate text-sm font-semibold">{course.title}</p>
+            <Image src="/logo.png" alt="Edgerax" width={26} height={26} className="rounded-md bg-black p-1 shrink-0" />
+            <div className="min-w-0 hidden sm:block">
+              <p className="truncate text-xs font-semibold text-foreground leading-none">{course.title}</p>
+              {activeLessonObj && (
+                <p className="truncate text-[11px] text-muted-foreground mt-0.5">
+                  Lesson {activeLessonIndex + 1} of {flat.length} · {activeLessonObj.chapterTitle}
+                </p>
+              )}
+            </div>
           </div>
+
+          {/* Right: Auto-next & Progress */}
           <div className="flex items-center gap-3">
+            {/* Auto advance toggle */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                id="auto-advance"
+                checked={autoAdvance}
+                onCheckedChange={setAutoAdvance}
+                className="scale-75"
+              />
+              <label htmlFor="auto-advance" className="cursor-pointer font-medium select-none text-xs">
+                Auto-next
+              </label>
+            </div>
+
+            {/* Overall Progress */}
             <div className="flex items-center gap-2">
-              <Progress value={progress} className="w-20 sm:w-28" />
-              <span className="text-xs text-muted-foreground">{progress}%</span>
+              <Progress value={progress} className="w-16 sm:w-24 h-2" />
+              <span className="text-xs font-mono font-semibold text-muted-foreground">{progress}%</span>
             </div>
           </div>
         </div>
       </header>
 
-      {/* ── Mobile layout: stacked ── Desktop layout: side-by-side ── */}
-      <div className="flex flex-1 flex-col lg:flex-row lg:gap-0">
+      {/* ── Main Viewport Layout ── */}
+      <div className="flex flex-1 flex-col lg:flex-row min-w-0">
 
-        {/* ── Left / main column ── */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        {/* ── Left Content Column ── */}
+        <div className="flex flex-1 flex-col min-w-0">
 
-          {/* Player — flush to screen edges on mobile */}
-          <div className="w-full lg:px-6 lg:pt-6">
-            {!canViewActive ? (
-              <div className="flex min-h-[200px] flex-col items-center justify-center gap-4 bg-muted/30 p-8 text-center lg:rounded-xl lg:border">
-                <Lock className="size-10 text-muted-foreground" />
-                <div>
-                  <p className="font-semibold">This lesson is locked</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Purchase the course to unlock all lessons.</p>
+          {/* Media Player Area — sticky on mobile so video stays fixed while content scrolls */}
+          <div className="sticky top-14 z-30 w-full bg-black lg:relative lg:top-auto lg:z-auto">
+            <div className="w-full">
+              {!canViewActive ? (
+                <div className="flex min-h-[350px] sm:min-h-[460px] flex-col items-center justify-center gap-4 bg-muted/20 p-8 text-center border-b border-border/60">
+                  <div className="size-14 rounded-full bg-muted flex items-center justify-center">
+                    <Lock className="size-7 text-muted-foreground" />
+                  </div>
+                  <div className="max-w-sm">
+                    <p className="font-bold text-lg text-foreground">This lesson is locked</p>
+                    <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                      Enroll in this course to unlock all video lectures, PDF notes, and certificate.
+                    </p>
+                  </div>
+                  <Button nativeButton={false} render={<Link href={`/courses/${course.id}`} />} className="gap-2 font-semibold">
+                    Enroll Now &amp; Unlock
+                  </Button>
                 </div>
-                <Button nativeButton={false} render={<Link href={`/courses/${course.id}`} />}>
-                  View course &amp; buy
-                </Button>
-              </div>
-            ) : activeLesson?.lessonType === "PDF" ? (
-              <div className="lg:rounded-xl lg:border lg:overflow-hidden"><PdfArea lesson={activeLesson} /></div>
-            ) : activeLesson?.lessonType === "URL" ? (
-              <div className="px-4 lg:px-0"><LinkArea lesson={activeLesson} /></div>
-            ) : (
-              /* Video — no border/radius on mobile so it's edge-to-edge */
-              <div className="w-full overflow-hidden bg-black lg:rounded-xl lg:border">
-                <VideoArea lesson={activeLesson} lessonId={activeId} />
-              </div>
-            )}
-          </div>
-
-          {/* Lesson meta + mark complete */}
-          <div className="flex flex-col gap-2 px-4 pt-3 pb-2 lg:px-6 lg:py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {flat.find((f) => f.lesson.id === activeId)?.chapterTitle}
-            </p>
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="flex flex-col gap-1 min-w-0 flex-1">
-                <h1 className="text-balance text-base font-semibold leading-snug sm:text-lg">
-                  {activeLesson?.title}
-                </h1>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="w-fit text-xs">
-                    {activeLesson?.lessonType === "PDF" ? "PDF" : activeLesson?.lessonType === "URL" ? "URL" : "Video"}
-                  </Badge>
-                  {activeLesson?.preview && !owned && (
-                    <Badge variant="secondary" className="w-fit text-xs">Free preview</Badge>
-                  )}
+              ) : activeLesson?.lessonType === "PDF" ? (
+                <div className="w-full bg-black flex items-center justify-center">
+                  <div className="w-full max-w-[1440px] mx-auto aspect-video">
+                    <PdfArea lesson={activeLesson} />
+                  </div>
                 </div>
-              </div>
-              {owned && (
-                <Button onClick={markComplete} size="sm" className="shrink-0"
-                  disabled={!activeLesson || completedIds.has(activeLesson.id) || marking}>
-                  {marking ? <Spinner data-icon="inline-start" /> : <CheckCircle2 data-icon="inline-start" />}
-                  {activeLesson && completedIds.has(activeLesson.id) ? "Completed" : "Mark complete"}
-                </Button>
+              ) : activeLesson?.lessonType === "URL" ? (
+                <div className="w-full bg-black flex items-center justify-center">
+                  <div className="w-full max-w-[1440px] mx-auto aspect-video">
+                    <LinkArea lesson={activeLesson} />
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full bg-black flex items-center justify-center">
+                  <div className="w-full max-w-[1440px] mx-auto">
+                    <VideoArea lesson={activeLesson} lessonId={activeId} onEnded={handleVideoEnded} />
+                  </div>
+                </div>
               )}
             </div>
-            {!owned && (
-              <Button nativeButton={false} render={<Link href={`/courses/${course.id}`} />}
-                variant="outline" size="sm" className="mt-1 w-fit">
-                Purchase for full access
-              </Button>
-            )}
           </div>
 
-          {/* Certificate — desktop only (mobile shows it at very bottom) */}
-          {owned && course.certificatesEnabled && (
-            <div className="hidden px-6 pb-6 lg:block">
-              <CertificateSection courseId={params.id} progress={progress} />
-            </div>
-          )}
-        </div>
+          {/* ── Dedicated Navigation & Controls Bar ── */}
+          <div className="border-b bg-card px-3 sm:px-6 py-2.5 shadow-xs overflow-x-auto">
+            <div className="max-w-[1440px] mx-auto flex flex-nowrap items-center justify-between gap-2 sm:gap-4 w-full min-w-0">
 
-        {/* ── Mobile: inline lesson list below player ── */}
-        <div className="lg:hidden">
-          <div>
-            <div className="flex items-center justify-between border-y bg-muted/30 px-4 py-2.5">
-              <p className="text-sm font-semibold">Course content</p>
-              <span className="text-xs text-muted-foreground">{completedIds.size}/{flat.length} lessons</span>
+              {/* Prev Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={goToPrev}
+                disabled={!prevLessonObj}
+                className="gap-1 sm:gap-2 text-xs font-semibold h-9 px-2 sm:px-3 shrink-0 whitespace-nowrap"
+              >
+                <ChevronLeft className="size-4 shrink-0" />
+                <span>Prev</span>
+              </Button>
+
+              {/* Main Center Action: Mark Complete & Next */}
+              {owned && activeLesson && (
+                <Button
+                  onClick={markAndNext}
+                  disabled={marking}
+                  size="sm"
+                  className={cn(
+                    "gap-1.5 sm:gap-2 font-bold text-xs sm:text-sm h-9 px-3 sm:px-5 shadow-sm transition-all shrink-0 whitespace-nowrap",
+                    completedIds.has(activeLesson.id)
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-700 dark:hover:bg-emerald-800"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  )}
+                >
+                  {marking ? (
+                    <Spinner className="size-4 shrink-0" />
+                  ) : completedIds.has(activeLesson.id) ? (
+                    <CheckCircle2 className="size-4 shrink-0" />
+                  ) : (
+                    <Check className="size-4 shrink-0" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {completedIds.has(activeLesson.id)
+                      ? nextLessonObj ? "Completed · Next →" : "Completed ✓"
+                      : nextLessonObj ? "Mark Complete & Next" : "Mark Complete"}
+                  </span>
+                  <span className="sm:hidden">
+                    {completedIds.has(activeLesson.id)
+                      ? "Completed"
+                      : nextLessonObj ? "Complete & Next" : "Complete"}
+                  </span>
+                </Button>
+              )}
+
+              {/* Next Button */}
+              <Button
+                variant={nextLessonObj ? "default" : "outline"}
+                size="sm"
+                onClick={goToNext}
+                disabled={!nextLessonObj}
+                className="gap-1 sm:gap-2 text-xs font-semibold h-9 px-2 sm:px-3 shrink-0 whitespace-nowrap"
+              >
+                <span className="hidden sm:inline">Next Lesson</span>
+                <span className="sm:hidden">Next</span>
+                <ChevronRight className="size-4 shrink-0" />
+              </Button>
+
             </div>
-            {/* Flat lesson list — always visible, no sheet */}
-            <div className="divide-y">
-              {course.chapters.map((ch, chIdx) => {
-                // Global lesson counter offset for this chapter
-                const offset = course.chapters
-                  .slice(0, chIdx)
-                  .reduce((s, c) => s + c.lessons.length, 0)
-                return (
-                  <div key={ch.id}>
-                    {/* Section header */}
-                    <div className="flex items-center justify-between bg-muted/20 px-4 py-2">
-                      <p className="text-xs font-semibold">
-                        Section {chIdx + 1} · {ch.title}
+          </div>
+
+          {/* ── Details Area Below Video Player ── */}
+          <div className="flex-1 p-4 lg:p-6 max-w-5xl w-full mx-auto">
+            {/* Mobile View: Curriculum & Certificate Tabs */}
+            <div className="lg:hidden">
+              <Tabs defaultValue="curriculum" className="w-full">
+                <TabsList className="mb-6 grid w-full max-w-xs grid-cols-2">
+                  <TabsTrigger value="curriculum" className="gap-1.5 text-xs font-semibold">
+                    <Layers className="size-3.5" /> Curriculum
+                  </TabsTrigger>
+                  <TabsTrigger value="certificate" className="gap-1.5 text-xs font-semibold">
+                    <Award className="size-3.5" /> Certificate
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Curriculum Tab Content (Mobile) */}
+                <TabsContent value="curriculum" className="space-y-4">
+                  <div className="rounded-xl border bg-card overflow-hidden shadow-xs">
+                    <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
+                      <p className="font-semibold text-sm">Course Structure &amp; Modules</p>
+                      <span className="text-xs text-muted-foreground">{completedIds.size} of {flat.length} completed</span>
+                    </div>
+                    <div className="divide-y">
+                      {course.chapters.map((ch, idx) => (
+                        <ChapterAccordion
+                          key={ch.id}
+                          chapter={ch}
+                          chapterIndex={idx}
+                          activeId={activeId}
+                          completed={completedIds}
+                          owned={owned}
+                          onSelect={(l) => setActiveId(l.id)}
+                          isOpen={Boolean(openChapters[ch.id])}
+                          onToggle={() => toggleChapter(ch.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Certificate Tab Content (Mobile) */}
+                <TabsContent value="certificate">
+                  {owned && course.certificatesEnabled ? (
+                    <CertificateSection courseId={params.id} progress={progress} />
+                  ) : (
+                    <div className="rounded-xl border p-6 text-center bg-card">
+                      <Award className="size-10 mx-auto text-muted-foreground/60" />
+                      <p className="font-semibold mt-3 text-sm sm:text-base">
+                        Certificates will be enabled once the course completes.
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Complete your lessons to earn your official certificate of completion.
                       </p>
                     </div>
-                    {/* Lessons */}
-                    {ch.lessons.map((l, lIdx) => {
-                      const globalIdx = offset + lIdx + 1
-                      const isActive = l.id === activeId
-                      const isDone   = completedIds.has(l.id)
-                      const isLocked = !owned && !l.preview
-                      return (
-                        <button
-                          key={l.id}
-                          onClick={() => !isLocked && setActiveId(l.id)}
-                          disabled={isLocked}
-                          className={cn(
-                            "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-                            isActive ? "bg-primary/10" : isLocked ? "opacity-50" : "hover:bg-muted/50",
-                          )}
-                        >
-                          {/* Number / done indicator */}
-                          <span className={cn(
-                            "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                            isDone ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                          )}>
-                            {isDone ? <CheckCircle2 className="size-3.5" /> : globalIdx}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className={cn(
-                              "truncate text-sm font-medium leading-snug",
-                              isActive && "text-primary",
-                            )}>
-                              {isLocked && <Lock className="mr-1 inline size-3 text-muted-foreground" />}
-                              {l.title}
-                            </p>
-                            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                              <LessonTypeIcon lessonType={l.lessonType} className="size-3" />
-                              {l.lessonType === "PDF" ? "PDF" : l.lessonType === "URL" ? "URL" : "Video"}
-                              {l.duration ? ` · ${l.duration}` : ""}
-                              {l.preview && !owned && (
-                                <span className="ml-1 rounded border px-1 py-px text-[10px] font-medium">Free</span>
-                              )}
-                            </p>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )
-              })}
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Desktop View: Certificate Section Below Player */}
+            <div className="hidden lg:block">
+              {owned && course.certificatesEnabled ? (
+                <CertificateSection courseId={params.id} progress={progress} />
+              ) : (
+                <div className="rounded-xl border p-6 text-center bg-card">
+                  <Award className="size-10 mx-auto text-muted-foreground/60" />
+                  <p className="font-semibold mt-3 text-sm sm:text-base">
+                    Certificates will be enabled once the course completes.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Complete your lessons to earn your official certificate of completion.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Certificate at bottom on mobile */}
-          {owned && course.certificatesEnabled && (
-            <div className="p-4">
-              <CertificateSection courseId={params.id} progress={progress} />
-            </div>
-          )}
         </div>
 
-        {/* ── Desktop sidebar ── */}
-        <aside className="hidden w-80 shrink-0 border-l lg:flex lg:flex-col">
-          <div className="sticky top-14 flex flex-col" style={{ height: "calc(100svh - 3.5rem)" }}>
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <p className="font-semibold text-sm">Course content</p>
-              <span className="text-xs text-muted-foreground">{progress}% done</span>
+        <aside className="hidden lg:flex w-80 xl:w-96 shrink-0 border-l bg-card flex-col">
+          <div className="sticky top-14 flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
+            <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/20">
+              <div>
+                <h3 className="font-bold text-sm text-foreground">Course Content</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{completedIds.size} of {flat.length} completed</p>
+              </div>
+              <Badge variant="secondary" className="font-mono text-xs">{progress}%</Badge>
             </div>
+
             <Progress value={progress} className="h-1 rounded-none" />
-            <ScrollArea className="flex-1">
-              <div className="px-3 pb-6 pt-2">
-                <LessonList chapters={course.chapters} activeId={activeId}
-                  completed={completedIds} owned={owned} onSelect={(l) => setActiveId(l.id)} />
+
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="divide-y border-b">
+                {course.chapters.map((ch, idx) => (
+                  <ChapterAccordion
+                    key={ch.id}
+                    chapter={ch}
+                    chapterIndex={idx}
+                    activeId={activeId}
+                    completed={completedIds}
+                    owned={owned}
+                    onSelect={(l) => setActiveId(l.id)}
+                    isOpen={Boolean(openChapters[ch.id])}
+                    onToggle={() => toggleChapter(ch.id)}
+                  />
+                ))}
               </div>
             </ScrollArea>
           </div>

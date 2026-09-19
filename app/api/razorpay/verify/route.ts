@@ -7,6 +7,7 @@ import { and, eq, sql } from "drizzle-orm"
 import { getCurrentUser, uid } from "@/lib/auth"
 import { computeExpiresAt } from "@/lib/format"
 import { recordAllocations } from "@/lib/allocations"
+import { sendAutoEmail } from "@/lib/email-auto"
 
 function getRazorpayClient() {
   const keyId = process.env.RAZORPAY_KEY_ID
@@ -158,6 +159,14 @@ export async function POST(req: NextRequest) {
       instructorId: course.instructorId ?? null,
       referrerId,
     })
+
+    // Fire-and-forget purchase email
+    sendAutoEmail("purchase", {
+      name:   user.name,
+      email:  user.email,
+      course: String(course.title),
+      link:   `${process.env.APP_URL ?? ""}/learn/${courseId}`,
+    }).catch((e) => console.error("[purchase email]", e))
 
     return NextResponse.json(purchase, { status: 201 })
   } catch (err) {

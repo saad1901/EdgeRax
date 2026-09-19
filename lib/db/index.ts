@@ -64,7 +64,7 @@ function createDb(): { db: any; client: AnyClient } {
 
 const g = globalThis as unknown as { _edgerax?: ReturnType<typeof createDb> }
 const instance = g._edgerax ?? createDb()
-if (process.env.NODE_ENV !== "production") g._edgerax = instance
+g._edgerax = instance
 
 export const db = instance.db
 export const client = instance.client

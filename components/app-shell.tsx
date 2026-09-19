@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Home, LayoutDashboard, LibraryBig, LogOut,
-  Menu, User as UserIcon, Users, X, Phone, Mail, MapPin
+  Menu, User as UserIcon, Users, X, Phone, Mail, MapPin, Briefcase
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { cn, initials } from "@/lib/utils"
@@ -28,10 +28,19 @@ import {
 const navItems = [
   { href: "/",           label: "Home",       icon: Home       },
   { href: "/my-courses", label: "My Courses", icon: LibraryBig },
+  { href: "/careers",    label: "Careers",    icon: Briefcase  },
   { href: "/profile",    label: "Profile",    icon: UserIcon   },
 ]
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  mainClassName,
+  hideFooter = false,
+}: {
+  children: React.ReactNode
+  mainClassName?: string
+  hideFooter?: boolean
+}) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, refresh } = useSession()
@@ -68,18 +77,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-svh flex-col">
       {/* Top navbar */}
-      <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4">
           <Link href="/" className="flex shrink-0 items-center gap-2">
             <Image src="/logo.png" alt="Edgerax" width={36} height={36} className="rounded-lg bg-black p-1" />
-            <span className="text-lg font-semibold tracking-tight">Edgerax</span>
+            <span className="text-lg font-bold tracking-tight">Edgerax</span>
           </Link>
 
           {/* Desktop nav */}
           <nav className="hidden items-center gap-1 md:flex">
             {desktopNavItems.map((item) => (
-              <Button key={item.href} variant={isActive(item.href) ? "secondary" : "ghost"}
-                nativeButton={false} render={<Link href={item.href} />}>
+              <Button
+                key={item.href}
+                variant={isActive(item.href) ? "default" : "ghost"}
+                size="sm"
+                nativeButton={false}
+                render={<Link href={item.href} />}
+                className="rounded-full"
+              >
                 <item.icon data-icon="inline-start" />
                 {item.label}
               </Button>
@@ -112,6 +127,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => router.push("/my-courses")}>
                           <LibraryBig data-icon="inline-start" />My Courses
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push("/my-internships")}>
+                          <Briefcase data-icon="inline-start" />My Internships
                         </DropdownMenuItem>
                         {user.role === "admin" && (
                           <DropdownMenuItem onClick={() => router.push("/admin")}>
@@ -153,30 +171,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main */}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-6 md:pb-10">
+      <main className={cn("mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-6 md:pb-10", mainClassName)}>
         {children}
       </main>
 
       {/* Footer — hidden on mobile when bottom nav is shown */}
-      <div className="hidden md:block">
+      <div className={cn("hidden md:block", hideFooter && "md:hidden")}>
         <SiteFooter />
       </div>
 
       {/* Mobile bottom nav (logged-in) */}
       {user && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur md:hidden"
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur-md md:hidden safe-bottom"
           aria-label="Mobile navigation">
-          <div className="mx-auto flex max-w-md items-stretch justify-around">
-            {mobileNavItems.map((item) => (
-              <Link key={item.href} href={item.href}
-                className={cn(
-                  "flex flex-1 flex-col items-center gap-1 py-2.5 text-xs transition-colors",
-                  isActive(item.href) ? "text-primary" : "text-muted-foreground hover:text-foreground",
-                )}>
-                <item.icon className="size-5" />
-                <span>{item.label}</span>
-              </Link>
-            ))}
+          <div className="mx-auto flex max-w-md items-stretch justify-around px-2">
+            {mobileNavItems.map((item) => {
+              const active = isActive(item.href)
+              return (
+                <Link key={item.href} href={item.href}
+                  className={cn(
+                    "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors relative",
+                    active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+                  )}>
+                  {active && (
+                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
+                  )}
+                  <item.icon className={cn("size-5 transition-transform", active && "scale-110")} />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            })}
           </div>
         </nav>
       )}

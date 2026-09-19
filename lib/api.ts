@@ -3,7 +3,7 @@
  * All functions are plain async — call them from useEffect / event handlers.
  */
 
-import type { Course } from "./types"
+import type { Course, Lesson } from "./types"
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -360,6 +360,7 @@ export const instructorApi = {
 
 export interface AdminStats {
   totalUsers: number; totalSold: number; totalRevenue: number; totalCourses: number
+  totalInternships?: number; totalApplications?: number
   revenueByCourse: { id: string; name: string; revenue: number }[]
   recentPurchases: {
     id: string; userId: string; courseId: string; amount: number
@@ -380,6 +381,7 @@ export interface AdminStudent {
   id: string
   name: string
   email: string
+  role?: string
   phone?: string | null
   referralPercent?: number | null
   createdAt: string
@@ -445,6 +447,7 @@ export interface CourseStudent {
   userId: string
   name: string
   email: string
+  phone?: string | null
   amount: number
   paymentId: string
   purchasedAt: string
@@ -520,12 +523,13 @@ export const adminApi = {
     }),
   listCourseStudents: (courseId: string) =>
     apiFetch<CourseStudent[]>(`/api/admin/courses/${courseId}/students`),
-  grantAccess: (userId: string, courseId: string, paymentMode: "free" | "cash" = "cash", amount?: number) =>
+  grantAccess: (userId: string, courseId: string, paymentMode: "free" | "cash" = "cash", amount?: number, referrerId?: string) =>
     apiFetch<{ ok: boolean }>("/api/admin/giveaway", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, courseId, paymentMode, amount }),
-    }),  changeUserPassword: (userId: string, newPassword: string) =>
+      body: JSON.stringify({ userId, courseId, paymentMode, amount, referrerId }),
+    }),
+  changeUserPassword: (userId: string, newPassword: string) =>
     apiFetch<{ ok: boolean }>('/api/admin/users/password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -573,13 +577,13 @@ export const adminApi = {
 
   // Lessons
   addLesson: (chapterId: string, data: { title: string; duration?: string; preview?: boolean; videoUrl?: string; lessonType?: "VIDEO" | "PDF" | "URL"; pdfPath?: string; pdfTitle?: string; pdfDescription?: string; urlLink?: string }) =>
-    apiFetch("/api/admin/lessons", {
+    apiFetch<Lesson>("/api/admin/lessons", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chapterId, ...data }),
     }),
   updateLesson: (id: string, data: Partial<{ title: string; duration: string; preview: boolean; videoUrl: string; lessonType: "VIDEO" | "PDF" | "URL"; pdfPath: string; pdfTitle: string; pdfDescription: string; urlLink: string }>) =>
-    apiFetch(`/api/admin/lessons/${id}`, {
+    apiFetch<Lesson>(`/api/admin/lessons/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -613,12 +617,13 @@ export const adminApi = {
     }),
 
   // Video upload
-  uploadVideo: (lessonId: string, file: File, onProgress?: (pct: number) => void) => {
+  uploadVideo: (lessonId: string, file: File, onProgress?: (pct: number) => void, storageType: "cloud" | "local" = "cloud") => {
     return new Promise<{ ok: boolean; videoUrl: string }>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       const fd = new FormData()
       fd.append("lessonId", lessonId)
       fd.append("file", file)
+      fd.append("storageType", storageType)
 
       if (onProgress) {
         xhr.upload.addEventListener("progress", (e) => {

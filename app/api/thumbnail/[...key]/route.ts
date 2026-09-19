@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
-import { createWasabiClient, getWasabiBucket } from "@/lib/wasabi-video"
+import { buildGcoreCdnUrl, createWasabiClient, getGcoreCdnBaseUrl, getWasabiBucket } from "@/lib/wasabi-video"
 
 export const runtime = "nodejs"
 
 /**
  * GET /api/thumbnail/<key>
- * Proxy-serves a thumbnail image from Wasabi.
- * Thumbnails are stored privately; this route streams them to the browser.
- * Long cache: thumbnails never change once uploaded.
+ * If Gcore CDN is configured, issues a 302 redirect to the CDN URL so the
+ * browser fetches the image directly from the edge — no proxying overhead.
+ * Falls back to streaming from Wasabi when CDN is not configured.
+ * Thumbnails are immutable once uploaded — cached aggressively.
  */
 export async function GET(
   _req: NextRequest,
@@ -22,6 +23,18 @@ export async function GET(
     return new NextResponse("Not found.", { status: 404 })
   }
 
+  // Redirect to CDN if configured
+  if (getGcoreCdnBaseUrl()) {
+    const cdnUrl = buildGcoreCdnUrl(key)
+    return NextResponse.redirect(cdnUrl, {
+      status: 302,
+      headers: {
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    })
+  }
+
+  // Fallback: proxy from Wasabi
   try {
     const client = createWasabiClient()
     const obj = await client.send(new GetObjectCommand({
@@ -37,7 +50,6 @@ export async function GET(
       headers: {
         "Content-Type": obj.ContentType || "image/jpeg",
         "Content-Length": String(obj.ContentLength ?? ""),
-        // Thumbnails are immutable once uploaded — cache aggressively
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     })

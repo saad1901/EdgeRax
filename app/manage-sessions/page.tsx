@@ -3,11 +3,12 @@
 import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
-import { Monitor, Smartphone, Laptop, LogOut, RefreshCw, Clock } from "lucide-react"
+import { Monitor, Smartphone, LogOut, RefreshCw, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
+import { useSession } from "@/lib/session"
 
 interface Session {
   id: string
@@ -34,21 +35,30 @@ function formatDate(dateStr: string) {
 function ManageSessionsContent() {
   const router      = useRouter()
   const searchParams = useSearchParams()
-  const email       = searchParams.get("email") ?? ""
-  const password    = searchParams.get("password") ?? ""
   const redirectTo  = searchParams.get("redirect") ?? "/"
+  const { refresh } = useSession()
 
-  const [sessions,  setSessions]  = useState<Session[]>([])
+  // Credentials are stored in sessionStorage (never in the URL) to avoid
+  // them appearing in browser history, server logs, or Referer headers.
+  const [email,    setEmail]    = useState("")
+  const [password, setPassword] = useState("")
+
+  const [sessions,   setSessions]   = useState<Session[]>([])
   const [maxDevices, setMaxDevices] = useState<number>(0)
-  const [loading,   setLoading]   = useState(true)
-  const [revoking,  setRevoking]  = useState<string | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [revoking,   setRevoking]   = useState<string | null>(null)
 
-  // If no credentials in URL, send back to login
+  // On mount, pull credentials from sessionStorage; redirect to login if missing.
   useEffect(() => {
-    if (!email || !password) {
+    const storedEmail    = sessionStorage.getItem("mgmt_email") ?? ""
+    const storedPassword = sessionStorage.getItem("mgmt_password") ?? ""
+    if (!storedEmail || !storedPassword) {
       router.replace("/auth")
+      return
     }
-  }, [email, password, router])
+    setEmail(storedEmail)
+    setPassword(storedPassword)
+  }, [router])
 
   async function load() {
     setLoading(true)
@@ -110,6 +120,10 @@ function ManageSessionsContent() {
         toast.error(data.error ?? "Login failed.")
         return
       }
+      // Clear credentials from sessionStorage now that login succeeded.
+      sessionStorage.removeItem("mgmt_email")
+      sessionStorage.removeItem("mgmt_password")
+      await refresh()
       toast.success("Logged in!")
       router.replace(redirectTo)
       router.refresh()
@@ -119,9 +133,10 @@ function ManageSessionsContent() {
   }
 
   const nonCurrentSessions = sessions.filter((s) => !s.isCurrent)
-  // User needs to remove sessions until count drops below maxDevices
-  // e.g. limit=3, currently 3 sessions → need to remove 1 (3-3+1=1)
-  const needToRemove = maxDevices > 0 ? Math.max(0, nonCurrentSessions.length - maxDevices + 1) : 0
+  // The user is not logged in on this page, so isCurrent is always false and
+  // nonCurrentSessions === sessions. We need the count to drop below maxDevices
+  // so the next login attempt succeeds (isDeviceLimitReached uses >= max).
+  const needToRemove = maxDevices > 0 ? Math.max(0, sessions.length - maxDevices + 1) : 0
   const canLogin = needToRemove === 0
 
   return (

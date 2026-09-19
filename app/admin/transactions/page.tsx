@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import {
   Search, Trash2, IndianRupee, Users, BookOpen,
-  Share2, GraduationCap, PieChart, AlertTriangle, Receipt, Tag,
+  Share2, GraduationCap, PieChart, AlertTriangle, Receipt, Tag, Plus,
+  ShieldCheck, User,
 } from "lucide-react"
 import { AdminShell } from "@/components/admin-shell"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { formatPrice } from "@/lib/format"
 import { toast } from "sonner"
+import { GiveawayDialog } from "@/components/giveaway-dialog"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -75,6 +77,7 @@ export default function AdminTransactionsPage() {
   const [query,        setQuery]        = useState("")
   const [deleting,     setDeleting]     = useState<Transaction | null>(null)
   const [confirming,   setConfirming]   = useState(false)
+  const [showAddDialog, setShowAddDialog] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -94,11 +97,14 @@ export default function AdminTransactionsPage() {
 
   const filtered = transactions.filter((t) => {
     const q = query.toLowerCase()
+    const isAdmin = t.paymentId === "giveaway" || t.paymentId === "cash-offline" || t.paymentId.startsWith("admin")
+    const originStr = isAdmin ? "admin added by admin" : "user paid by user"
     return (
       t.student.name.toLowerCase().includes(q) ||
       t.student.email.toLowerCase().includes(q) ||
       t.course.title.toLowerCase().includes(q) ||
-      t.paymentId.toLowerCase().includes(q)
+      t.paymentId.toLowerCase().includes(q) ||
+      originStr.includes(q)
     )
   })
 
@@ -136,6 +142,10 @@ export default function AdminTransactionsPage() {
               Full history of every course purchase with allocation and referral details.
             </p>
           </div>
+          <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+            <Plus className="size-4" />
+            Record Payment
+          </Button>
         </div>
 
         {/* Search */}
@@ -177,10 +187,27 @@ export default function AdminTransactionsPage() {
                           <BookOpen className="size-4 shrink-0 text-muted-foreground" />
                           <span className="text-sm">{t.course.title}</span>
                         </div>
-                        {/* Date + payment ID + coupon */}
+                        {/* Date + payment origin + payment ID + coupon */}
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5">
                           <span>{formatDate(t.purchasedAt)}</span>
                           <span aria-hidden>·</span>
+                          {t.paymentId === "giveaway" || t.paymentId === "cash-offline" || t.paymentId.startsWith("admin") ? (
+                            <Badge
+                              variant="secondary"
+                              className="gap-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/40 text-xs px-2 py-0.5 font-medium"
+                            >
+                              <ShieldCheck className="size-3" />
+                              Added by Admin
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 bg-blue-50/50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/40 text-xs px-2 py-0.5 font-medium"
+                            >
+                              <User className="size-3" />
+                              Paid by User
+                            </Badge>
+                          )}
                           <Badge variant={payment.variant} className="font-mono text-xs px-1.5 py-0">
                             {payment.label}
                           </Badge>
@@ -280,23 +307,21 @@ export default function AdminTransactionsPage() {
               <AlertTriangle className="size-5 text-destructive" />
               Delete this transaction?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-                <p>
-                  You are about to delete the purchase of{" "}
-                  <strong className="text-foreground">"{deleting?.course.title}"</strong> by{" "}
-                  <strong className="text-foreground">{deleting?.student.name}</strong>.
-                </p>
-                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-destructive dark:text-red-400 flex items-start gap-2">
-                  <AlertTriangle className="size-4 mt-0.5 shrink-0" />
-                  <span>
-                    <strong>Course access will be revoked immediately.</strong> The student will lose
-                    all progress visibility and won't be able to access the course until re-enrolled.
-                    Related referral earnings and revenue allocations will also be removed.
-                    This action cannot be undone.
-                  </span>
-                </div>
-              </div>
+            <AlertDialogDescription className="flex flex-col gap-3 text-sm text-muted-foreground">
+              <span>
+                You are about to delete the purchase of{" "}
+                <strong className="text-foreground">"{deleting?.course.title}"</strong> by{" "}
+                <strong className="text-foreground">{deleting?.student.name}</strong>.
+              </span>
+              <span className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-destructive dark:text-red-400 flex items-start gap-2">
+                <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+                <span>
+                  <strong>Course access will be revoked immediately.</strong> The student will lose
+                  all progress visibility and won't be able to access the course until re-enrolled.
+                  Related referral earnings and revenue allocations will also be removed.
+                  This action cannot be undone.
+                </span>
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -312,6 +337,11 @@ export default function AdminTransactionsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <GiveawayDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onGranted={load}
+      />
     </AdminShell>
   )
 }

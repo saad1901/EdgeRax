@@ -4,7 +4,7 @@ import { courses, chapters, lessons, purchases, users } from "@/lib/db/schema"
 import { asc, eq } from "drizzle-orm"
 import { getCurrentUser } from "@/lib/auth"
 import type { InferSelectModel } from "drizzle-orm"
-import { getCdnVideoUrl, getVideoKeyFromMarker, isPrivateVideoMarker } from "@/lib/wasabi-video"
+import { isPrivateVideoMarker } from "@/lib/wasabi-video"
 
 type Chapter = InferSelectModel<typeof chapters>
 type Lesson  = InferSelectModel<typeof lessons>
@@ -28,14 +28,9 @@ function resolvePlayableUrl(l: Lesson, owned: boolean): string {
     return isPrivateVideoMarker(raw) ? "" : raw
   }
 
-  // For private uploads: if CDN is configured, resolve directly to CDN URL
-  // so the <video> tag can fetch without a redirect. Falls back to the
-  // proxy route if no CDN is set.
+  // Private uploads must stay behind the app route. A direct CDN/object URL can
+  // be recovered from browser devtools and downloaded outside our access checks.
   if (isPrivateVideoMarker(raw)) {
-    const key = getVideoKeyFromMarker(raw, l.id)
-    const cdnUrl = getCdnVideoUrl(key)
-    if (cdnUrl) return cdnUrl
-    // No CDN — use the streaming proxy route
     return `__proxy__${l.id}`
   }
 

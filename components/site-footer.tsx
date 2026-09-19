@@ -46,6 +46,7 @@ export function SiteFooter() {
             <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
               <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
               <Link href="/my-courses" className="hover:text-foreground transition-colors">My Courses</Link>
+              <Link href="/careers" className="hover:text-foreground transition-colors">Careers</Link>
               <Link href="/profile" className="hover:text-foreground transition-colors">Profile</Link>
               <Link href="/auth" className="hover:text-foreground transition-colors">Sign In</Link>
             </nav>
